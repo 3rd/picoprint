@@ -142,7 +142,7 @@ describe("box", () => {
     expect(logOutput.length).toBeGreaterThan(2);
   });
 
-  it("should capture console output when given a function", () => {
+  it("should capture console output when given a function", async () => {
     box(() => {
       console.log("Captured line 1");
       console.log("Captured line 2");
@@ -197,7 +197,7 @@ describe("box", () => {
       expect(output).toContain("╯");
     });
 
-    it("should capture console output when given a function", () => {
+    it("should capture console output when given a function", async () => {
       box.panel("Test Panel", () => {
         console.log("Panel line 1");
         console.log("Panel line 2");
@@ -222,7 +222,7 @@ describe("box", () => {
   });
 
   describe("edge cases", () => {
-    it("should return the callback's return value", () => {
+    it("should return the callback's return value", async () => {
       const result = box(() => {
         console.log("Inside box");
         return 42;
@@ -232,7 +232,7 @@ describe("box", () => {
       expect(logOutput.join("\n")).toContain("Inside box");
     });
 
-    it("should return the callback's return value for panel", () => {
+    it("should return the callback's return value for panel", async () => {
       const result = box.panel("Test Panel", () => {
         console.log("Panel content");
         return { value: "test" };
@@ -242,10 +242,10 @@ describe("box", () => {
       expect(logOutput.join("\n")).toContain("Panel content");
     });
 
-    it("should return undefined for string content", () => {
+    it("should return void for string content", () => {
       const result = box("String content");
 
-      expect(result).toBeUndefined();
+      expect(result).toBe(undefined);
       expect(logOutput.join("\n")).toContain("String content");
     });
 
@@ -273,7 +273,7 @@ describe("box", () => {
       expect(logOutput.join("\n")).toContain("Test");
     });
 
-    it("should handle undefined values in captured output", () => {
+    it("should handle undefined values in captured output", async () => {
       box(() => {
         console.log(undefined);
         console.log(null);
@@ -373,8 +373,8 @@ describe("box", () => {
       expect(firstLine).toMatch(/^ {40}/);
     });
 
-    it("supports callback-based nested rendering", () => {
-      box(() => {
+    it("supports callback-based nested rendering", async () => {
+      await box(async () => {
         console.log("Level 1");
         box(() => {
           console.log("Level 2");
@@ -396,31 +396,6 @@ describe("box", () => {
       expect(allOutput).toMatch(/Level 1[\S\s]*Level 2/);
     });
 
-    describe("box.nested helper", () => {
-      it("automatically indents nested box", () => {
-        const parentCtx = createContext(4);
-        box.nested("Nested content", parentCtx);
-
-        for (const line of logOutput) {
-          expect(line).toMatch(/^ {6}/); // 6 spaces
-        }
-      });
-
-      it("allows custom options for nested box", () => {
-        const parentCtx = createContext();
-        box.nested("Nested", parentCtx, {
-          style: "double",
-          color: colors.blue,
-          title: "Nested Box",
-        });
-
-        const output = logOutput.join("\n");
-
-        expect(output).toContain("Nested Box");
-        expect(output).toContain("═");
-      });
-    });
-
     it("allows mixing regular console output with boxes at same indentation", () => {
       const ctx = createContext(4);
       const indent = " ".repeat(ctx.offset);
@@ -435,6 +410,84 @@ describe("box", () => {
 
       expect(logOutput[0]).toContain("Regular text");
       expect(logOutput[logOutput.length - 1]).toContain("More regular text");
+    });
+  });
+
+  describe("async callbacks", () => {
+    it("should handle async callbacks", async () => {
+      const result = await box(async () => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        console.log("Async content");
+        return "async result";
+      });
+
+      expect(result).toBe("async result");
+      expect(logOutput.join("\n")).toContain("Async content");
+    });
+
+    it("should handle async callbacks that throw errors", () => {
+      const promise = box(async () => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        throw new Error("Async error");
+      });
+      return expect(promise).rejects.toThrow("Async error");
+    });
+
+    it("should handle async callbacks with nested async operations", async () => {
+      const result = await box(async () => {
+        const data = await Promise.resolve("fetched data");
+        console.log(`Got: ${data}`);
+        return data;
+      });
+
+      expect(result).toBe("fetched data");
+      expect(logOutput.join("\n")).toContain("Got: fetched data");
+    });
+
+    it("should handle async callbacks in box.frame", async () => {
+      const result = await box.frame(async () => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        console.log("Frame async");
+        return 123;
+      });
+
+      expect(result).toBe(123);
+      expect(logOutput.join("\n")).toContain("Frame async");
+    });
+
+    it("should handle async callbacks in box.panel", async () => {
+      const result = await box.panel("Async Panel", async () => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        console.log("Panel async");
+        return { success: true };
+      });
+
+      expect(result).toEqual({ success: true });
+      expect(logOutput.join("\n")).toContain("Panel async");
+      expect(logOutput.join("\n")).toContain("Async Panel");
+    });
+
+    it("should handle mixed sync and async nested boxes", async () => {
+      const result = await box(async () => {
+        console.log("Outer async");
+        const innerResult = box(() => {
+          console.log("Inner sync");
+          return 99;
+        });
+        return innerResult * 2;
+      });
+
+      expect(result).toBe(198);
+      expect(logOutput.join("\n")).toContain("Outer async");
+      expect(logOutput.join("\n")).toContain("Inner sync");
     });
   });
 
@@ -531,7 +584,7 @@ describe("box", () => {
       expect(logOutput.length).toBeGreaterThan(0);
     });
 
-    it("should apply background to captured function output", () => {
+    it("should apply background to captured function output", async () => {
       box(
         () => {
           console.log("Function output line 1");
