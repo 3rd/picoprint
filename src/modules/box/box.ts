@@ -25,7 +25,7 @@ const BORDER_WIDTH = 2;
 const ELLIPSIS = "...";
 const ELLIPSIS_LENGTH = 3;
 
-const captureConsoleOutput = (fn: () => void, maxWidth: number) => {
+const captureConsoleOutput = <T>(fn: () => T, maxWidth: number): { lines: string[]; result: T } => {
   const originalLog = console.log;
   const captured: string[] = [];
 
@@ -42,14 +42,15 @@ const captureConsoleOutput = (fn: () => void, maxWidth: number) => {
     for (const line of lines) captured.push(line);
   };
 
+  let result: T;
   try {
-    fn();
+    result = fn();
   } finally {
     console.log = originalLog;
     popContext();
   }
 
-  return captured;
+  return { lines: captured, result };
 };
 
 const wrapLines = (lines: string[], maxWidth: number) => {
@@ -120,7 +121,7 @@ const buildTopBorder = (options: BorderOptions) => {
   return background ? background(res) : res;
 };
 
-export const box = (content: (() => void) | string, options: BoxOptions = {}) => {
+export const box = <T = void>(content: (() => T) | string, options: BoxOptions = {}): T | undefined => {
   const ctx = options.context ?? getCurrentContext();
   const width = options.width ?? ctx.getWidth();
   const styleName = options.style ?? "single";
@@ -136,8 +137,15 @@ export const box = (content: (() => void) | string, options: BoxOptions = {}) =>
   const innerWidth = width - BORDER_WIDTH;
   const maxContentWidth = innerWidth - paddingX * 2;
 
+  let callbackResult: T | undefined;
   const contentLines =
-    typeof content === "function" ? captureConsoleOutput(content, maxContentWidth) : content.split("\n");
+    typeof content === "function" ?
+      (() => {
+        const { lines, result } = captureConsoleOutput(content, maxContentWidth);
+        callbackResult = result;
+        return lines;
+      })()
+    : content.split("\n");
 
   const wrappedLines = wrapLines(contentLines, maxContentWidth);
 
@@ -190,22 +198,28 @@ export const box = (content: (() => void) | string, options: BoxOptions = {}) =>
 
   const indent = " ".repeat(ctx.offset);
   for (const line of boxLines) console.log(indent + line);
+
+  return callbackResult;
 };
 
-box.frame = (content: string, options: Partial<BoxOptions> = {}) => {
-  box(content, { ...options });
+box.frame = <T = void>(content: (() => T) | string, options: Partial<BoxOptions> = {}): T | undefined => {
+  return box(content, { ...options });
 };
 
-box.panel = (title: string, content: (() => void) | string, options: Partial<BoxOptions> = {}) => {
-  box(content, { ...options, title, style: "rounded", padding: 1 });
+box.panel = <T = void>(
+  title: string,
+  content: (() => T) | string,
+  options: Partial<BoxOptions> = {},
+): T | undefined => {
+  return box(content, { ...options, title, style: "rounded", padding: 1 });
 };
 
-box.nested = (
-  content: (() => void) | string,
+box.nested = <T = void>(
+  content: (() => T) | string,
   parentContext?: RenderContext,
   options: Partial<BoxOptions> = {},
-) => {
+): T | undefined => {
   const ctx = parentContext ?? getCurrentContext();
   const nestedContext = ctx.indent(2);
-  box(content, { ...options, context: nestedContext });
+  return box(content, { ...options, context: nestedContext });
 };

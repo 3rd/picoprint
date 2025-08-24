@@ -222,6 +222,33 @@ describe("box", () => {
   });
 
   describe("edge cases", () => {
+    it("should return the callback's return value", () => {
+      const result = box(() => {
+        console.log("Inside box");
+        return 42;
+      });
+
+      expect(result).toBe(42);
+      expect(logOutput.join("\n")).toContain("Inside box");
+    });
+
+    it("should return the callback's return value for panel", () => {
+      const result = box.panel("Test Panel", () => {
+        console.log("Panel content");
+        return { value: "test" };
+      });
+
+      expect(result).toEqual({ value: "test" });
+      expect(logOutput.join("\n")).toContain("Panel content");
+    });
+
+    it("should return undefined for string content", () => {
+      const result = box("String content");
+
+      expect(result).toBeUndefined();
+      expect(logOutput.join("\n")).toContain("String content");
+    });
+
     it("should handle content with ANSI codes", () => {
       const coloredContent = "\u001b[31mRed text\u001b[0m";
       box(coloredContent);

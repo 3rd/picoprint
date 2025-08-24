@@ -96,6 +96,13 @@ p.box(() => {
   console.log(p.green('With colors!'));
 }, { title: 'Captured', style: 'rounded' });
 
+// Box returns callback's return value
+const result = p.box(() => {
+  console.log('Computing...');
+  return 42;
+}, { title: 'Process' });
+// result === 42
+
 // Background colors
 p.box('Blue background', {
   background: p.bgBlue,
