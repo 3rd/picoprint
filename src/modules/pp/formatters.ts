@@ -15,7 +15,10 @@ export const formatPrimitive = (value: unknown) => {
 
   switch (type) {
     case "string": {
-      return colors.green(`"${value}"`);
+      const raw = String(value);
+      // turn new lines into \n
+      const escaped = raw.replace(/\r\n/g, "\n").replace(/\n/g, "\\n").replace(/\r/g, "\\n");
+      return colors.green(`"${escaped}"`);
     }
     case "number": {
       return colors.yellow(String(value));

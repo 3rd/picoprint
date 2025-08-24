@@ -1,6 +1,6 @@
 {
   "name": "picoprint",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A tiny, fast, and feature-rich pretty printer for the terminal with zero dependencies",
   "author": "3rd",
   "type": "module",
