@@ -1,0 +1,4 @@
+temeletry = false
+
+[test]
+root = "src"
