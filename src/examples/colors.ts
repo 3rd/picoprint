@@ -5,7 +5,7 @@ import { printExample } from "./_helpers";
 // Color support
 console.log(p.bold("Color support:"));
 if (p.isColorSupported()) {
-  console.log(p.colors.green("✓ Colors are supported in this terminal"));
+  console.log(p.green("✓ Colors are supported in this terminal"));
 } else {
   console.log("✗ Colors are not supported in this terminal");
 }
@@ -20,72 +20,72 @@ printExample("Colors", [
     title: "Basic colors",
     handler: () => {
       console.log(p.bold("Basic colors:"));
-      console.log(p.colors.black("Black text"));
-      console.log(p.colors.red("Red text"));
-      console.log(p.colors.green("Green text"));
-      console.log(p.colors.yellow("Yellow text"));
-      console.log(p.colors.blue("Blue text"));
-      console.log(p.colors.magenta("Magenta text"));
-      console.log(p.colors.cyan("Cyan text"));
-      console.log(p.colors.white("White text"));
-      console.log(p.colors.gray("Gray text"));
-      console.log(p.colors.grey("Grey text (alias)"));
+      console.log(p.black("Black text"));
+      console.log(p.red("Red text"));
+      console.log(p.green("Green text"));
+      console.log(p.yellow("Yellow text"));
+      console.log(p.blue("Blue text"));
+      console.log(p.magenta("Magenta text"));
+      console.log(p.cyan("Cyan text"));
+      console.log(p.white("White text"));
+      console.log(p.gray("Gray text"));
+      console.log(p.grey("Grey text (alias)"));
     },
   },
   {
     title: "Bright colors",
     handler: () => {
       console.log(p.bold("Bright colors:"));
-      console.log(p.colors.blackBright("Bright black text"));
-      console.log(p.colors.redBright("Bright red text"));
-      console.log(p.colors.greenBright("Bright green text"));
-      console.log(p.colors.yellowBright("Bright yellow text"));
-      console.log(p.colors.blueBright("Bright blue text"));
-      console.log(p.colors.magentaBright("Bright magenta text"));
-      console.log(p.colors.cyanBright("Bright cyan text"));
-      console.log(p.colors.whiteBright("Bright white text"));
+      console.log(p.blackBright("Bright black text"));
+      console.log(p.redBright("Bright red text"));
+      console.log(p.greenBright("Bright green text"));
+      console.log(p.yellowBright("Bright yellow text"));
+      console.log(p.blueBright("Bright blue text"));
+      console.log(p.magentaBright("Bright magenta text"));
+      console.log(p.cyanBright("Bright cyan text"));
+      console.log(p.whiteBright("Bright white text"));
     },
   },
   {
     title: "Text modifiers",
     handler: () => {
       console.log(p.bold("Text modifiers:"));
-      console.log(p.colors.bold("Bold text"));
-      console.log(p.colors.dim("Dim text"));
-      console.log(p.colors.italic("Italic text"));
-      console.log(p.colors.underline("Underlined text"));
-      console.log(p.colors.inverse("Inverse text"));
-      console.log(p.colors.strikethrough("Strikethrough text"));
-      console.log(p.colors.reset("Reset text"));
+      console.log(p.bold("Bold text"));
+      console.log(p.dim("Dim text"));
+      console.log(p.italic("Italic text"));
+      console.log(p.underline("Underlined text"));
+      console.log(p.inverse("Inverse text"));
+      console.log(p.strikethrough("Strikethrough text"));
+      console.log(p.reset("Reset text"));
     },
   },
   {
     title: "Background colors",
     handler: () => {
       console.log(p.bold("Background colors:"));
-      console.log(p.colors.bgBlack(p.colors.white("White on black background")));
-      console.log(p.colors.bgRed("Red background"));
-      console.log(p.colors.bgGreen("Green background"));
-      console.log(p.colors.bgYellow(p.colors.black("Black on yellow background")));
-      console.log(p.colors.bgBlue(p.colors.white("White on blue background")));
-      console.log(p.colors.bgMagenta("Magenta background"));
-      console.log(p.colors.bgCyan(p.colors.black("Black on cyan background")));
-      console.log(p.colors.bgWhite(p.colors.black("Black on white background")));
-      console.log(p.colors.bgGray("Gray background"));
+      console.log(p.bgBlack.white("White on black background"));
+      console.log(p.bgRed("Red background"));
+      console.log(p.bgGreen("Green background"));
+      console.log(p.bgYellow.black("Black on yellow background"));
+      console.log(p.bgBlue.white("White on blue background"));
+      console.log(p.bgMagenta("Magenta background"));
+      console.log(p.bgCyan.black("Black on cyan background"));
+      console.log(p.bgWhite.black("Black on white background"));
+      console.log(p.bgGray("Gray background"));
     },
   },
   {
     title: "Bright background colors",
     handler: () => {
       console.log(p.bold("Bright background colors:"));
-      console.log(p.colors.bgBlackBright(p.colors.white("White on bright black background")));
-      console.log(p.colors.bgRedBright(p.colors.black("Black on bright red background")));
-      console.log(p.colors.bgGreenBright(p.colors.black("Black on bright green background")));
-      console.log(p.colors.bgYellowBright(p.colors.black("Black on bright yellow background")));
-      console.log(p.colors.bgBlueBright(p.colors.white("White on bright blue background")));
-      console.log(p.colors.bgMagentaBright(p.colors.white("White on bright magenta background")));
-      console.log(p.colors.bgCyanBright(p.colors.black("Black on bright cyan background")));
-      console.log(p.colors.bgWhiteBright(p.colors.black("Black on bright white background")));
+      console.log(p.bgBlackBright.white("White on bright black background"));
+      console.log(p.bgRedBright.black("Black on bright red background"));
+      console.log(p.bgGreenBright.black("Black on bright green background"));
+      console.log(p.bgYellowBright.black("Black on bright yellow background"));
+      console.log(p.bgBlueBright.white("White on bright blue background"));
+      console.log(p.bgMagentaBright.white("White on bright magenta background"));
+      console.log(p.bgCyanBright.black("Black on bright cyan background"));
+      console.log(p.bgWhiteBright.black("Black on bright white background"));
     },
   },
 ]);
@@ -141,12 +141,12 @@ printExample("Combined Styles", [
     title: "Combined styles",
     handler: () => {
       console.log(p.bold("Combined styles:"));
-      console.log(`${p.colors.bold(p.colors.red("Bold red text"))}`);
-      console.log(`${p.colors.underline(p.colors.green("Underlined green text"))}`);
-      console.log(`${p.colors.italic(p.colors.blue("Italic blue text"))}`);
-      console.log(`${p.colors.bgYellow(p.colors.bold(p.colors.red("Bold red on yellow")))}`);
-      console.log(`${p.colors.inverse(p.colors.cyan("Inverted cyan text"))}`);
-      console.log(`${p.colors.dim(p.colors.strikethrough("Dim strikethrough text"))}`);
+      console.log(`${p.bold.red("Bold red text")}`);
+      console.log(`${p.underline.green("Underlined green text")}`);
+      console.log(`${p.italic.blue("Italic blue text")}`);
+      console.log(`${p.bgYellow.bold.red("Bold red on yellow")}`);
+      console.log(`${p.inverse.cyan("Inverted cyan text")}`);
+      console.log(`${p.dim.strikethrough("Dim strikethrough text")}`);
     },
   },
 ]);
@@ -171,16 +171,16 @@ printExample("Gradient Text", [
     handler: () => {
       console.log(p.bold("Gradient text (standard colors):"));
       console.log(
-        `${p.gradient("Smooth gradient from red to blue with proper interpolation", p.colors.red, p.colors.blue)}`,
+        `${p.gradient("Smooth gradient from red to blue with proper interpolation", p.red, p.blue)}`,
       );
       console.log(
-        `${p.gradient("Gradient from green to magenta - notice the smooth transition", p.colors.green, p.colors.magenta)}`,
+        `${p.gradient("Gradient from green to magenta - notice the smooth transition", p.green, p.magenta)}`,
       );
       console.log(
-        `${p.gradient("Yellow to cyan gradient with character-by-character color change", p.colors.yellow, p.colors.cyan)}`,
+        `${p.gradient("Yellow to cyan gradient with character-by-character color change", p.yellow, p.cyan)}`,
       );
       console.log(
-        `${p.gradient("Black to white gradient creates a grayscale effect", p.colors.black, p.colors.white)}`,
+        `${p.gradient("Black to white gradient creates a grayscale effect", p.black, p.white)}`,
       );
     },
   },

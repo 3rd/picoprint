@@ -22,7 +22,7 @@ p({ name: 'Alice', age: 30, hobbies: ['reading', 'coding'] });
 
 // Use colors
 console.log(p.green('Success!'));
-console.log(p.bgRed(p.white('ERROR')));
+console.log(p.bgRed.white('ERROR'));
 
 // Draw boxes
 p.box('Hello World', {
@@ -48,7 +48,7 @@ p.box('Hello World', {
 ```typescript
 // Basic colors
 p.red('Error'), p.green('Success'), p.yellow('Warning')
-p.bgBlue(p.white('Highlighted'))
+p.bgBlue.white('Highlighted')
 
 // Modifiers
 p.bold('Bold'), p.dim('Dimmed'), p.italic('Italic')
@@ -417,4 +417,3 @@ The default export `p` is both a function and an object:
 
 - Node.js 22+
 - Optional: `bat` for enhanced syntax highlighting
-
