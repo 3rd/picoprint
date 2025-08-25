@@ -15,6 +15,8 @@ import {
   rainbow,
   rgb,
 } from "../utils/colors";
+import { toInlineLogString } from "../utils/log-format";
+import { getCurrentContext } from "./context";
 
 export type ForegroundColorName = {
   [K in keyof typeof colors]: (typeof colors)[K] extends ForegroundColorFunction ? K : never;
@@ -27,6 +29,7 @@ type Chainable<K extends Kind> = ((s: number | string) => string) & {
   [P in keyof typeof colors]: Chainable<K>;
 } & {
   readonly __kind: K;
+  log: (...args: unknown[]) => string;
 };
 
 const isColorKey = (key: PropertyKey): key is keyof typeof colors => typeof key === "string" && key in colors;
@@ -49,6 +52,25 @@ const makeChainFn = <K extends Kind>(chain: BaseFn[], kind: K): Chainable<K> => 
   return new Proxy(apply, {
     get(target, prop, receiver) {
       if (prop === "__kind") return kind;
+      if (prop === "log") {
+        return (...args: unknown[]) => {
+          const ctx = getCurrentContext();
+          const indent = " ".repeat(ctx.offset);
+          const pieces = args.map((a) => {
+            const text = toInlineLogString(a);
+            // style each line
+            const styled = text
+              .split(/\r?\n/)
+              .map((line) => target(line))
+              .join("\n");
+            return styled;
+          });
+          const combined = pieces.join(" ");
+          const lines = combined.split(/\r?\n/);
+          for (const line of lines) console.log(indent + line);
+          return combined;
+        };
+      }
       if (prop in target) return Reflect.get(target, prop, receiver);
 
       if (isColorKey(prop)) {

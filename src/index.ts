@@ -15,7 +15,7 @@ import { calendar, calendarWithEvents } from "./modules/calendar";
 import { code } from "./modules/code";
 import * as colors from "./modules/colors";
 import { configure, getConfig, resetConfig } from "./modules/config";
-import { createContext } from "./modules/context";
+import { createContext, getCurrentContext } from "./modules/context";
 import { compare, deepDiff, diff, diffWords } from "./modules/diff";
 import { line } from "./modules/line";
 import { prettyPrint } from "./modules/pp";
@@ -23,6 +23,7 @@ import * as stream from "./modules/stream";
 import { compareInTable, table } from "./modules/table";
 import { callStack, stack, trace, error as traceError } from "./modules/trace";
 import { directory, tree, treeFromObject, treeMulti, treeSearch, treeStats } from "./modules/tree";
+import { toColoredInlineString } from "./utils/log-format";
 export type {
   BoxStream,
   BoxStreamOptions,
@@ -35,6 +36,7 @@ export type {
 } from "./modules/stream";
 
 type PPType = ((...args: Parameters<typeof prettyPrint>) => ReturnType<typeof prettyPrint>) & {
+  log: (...args: unknown[]) => string;
   box: typeof box;
   calendar: typeof calendar;
   calendarWithEvents: typeof calendarWithEvents;
@@ -75,7 +77,18 @@ const extendedTree = Object.assign(tree, {
   directory,
 });
 
+const ppLog = (...args: unknown[]): string => {
+  const ctx = getCurrentContext();
+  const indent = " ".repeat(ctx.offset);
+  const parts = args.map(toColoredInlineString);
+  const combined = parts.join(" ");
+  const lines = combined.split(/\r?\n/);
+  for (const l of lines) console.log(indent + l);
+  return combined;
+};
+
 const pp = Object.assign((...args: Parameters<typeof prettyPrint>) => prettyPrint(...args), {
+  log: ppLog,
   box,
   calendar,
   calendarWithEvents,

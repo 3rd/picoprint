@@ -21,8 +21,11 @@ import p from 'picoprint';
 p({ name: 'Alice', age: 30, hobbies: ['reading', 'coding'] });
 
 // Use colors
-console.log(p.green('Success!'));
-console.log(p.bgRed.white('ERROR'));
+p.green.log('Success!');
+p.bgRed.white.log('ERROR');
+
+// Quick logging (indent-aware)
+p.log('server', 'listening on', 3000);
 
 // Draw boxes
 p.box('Hello World', {
@@ -42,6 +45,7 @@ p.box('Hello World', {
 - 💻 **Code highlighting** - Syntax highlighting with optional bat integration
 - 📅 **Calendars** - ASCII calendars with event markers
 - 🔄 **Streaming** - Streaming output for progressive rendering
+- 📝 **Logging** - `p.log` and chainable `.log` on colors (e.g., `p.yellow.log()`)
 
 ### 🎨 Colors & Styling
 
@@ -72,6 +76,12 @@ p.gradientHex('Hex gradient', '#FF0000', '#0000FF')
 // Rainbow & color palettes
 p.rainbow('Rainbow text 🌈')
 p.palette('#FF0000', 7) // Generate 7 shades
+
+// Logging with styles
+p.yellow.log('warn:', 'disk', 95, '%')
+p.bold.yellow.log('ready')
+// plain log
+p.log('status', 200)
 ```
 
 ### 📦 Boxes
@@ -403,6 +413,8 @@ The default export `p` is both a function and an object:
 
 - `p(value, options?)` - Pretty print any value
 - `p.{color}(text)` - All color functions
+- `p.log(...args)` - Print any args (indent-aware) and return string
+- `p.{color}.log(...args)` - Chain colors then print args
 - `p.box(content, options?)` - Draw boxes
 - `p.line(options?)` - Draw lines
 - `p.table(data, options?)` - Display tables
