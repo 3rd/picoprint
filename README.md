@@ -27,6 +27,16 @@ p.bgRed.white.log('ERROR');
 // Quick logging (indent-aware)
 p.log('server', 'listening on', 3000);
 
+// Control global indentation
+p.indent();
+p.log('within a block'); // printed with 2-space indent
+p.indent(3);
+p.log('deeper');         // printed with 5-space indent
+p.dedent(); // pops one prior indent level
+p.log('back to 2');
+p.dedent();
+p.log('back to 0');
+
 // Draw boxes
 p.box('Hello World', {
   style: 'rounded',
@@ -423,7 +433,11 @@ The default export `p` is both a function and an object:
 - `p.diff(a, b, options?)` - Show differences
 - `p.calendar(date?, options?)` - Display calendar
 - `p.stream.*` - Streaming variants
+- `p.indent(amount?)` - Increase global indent (default 2)
+- `p.dedent()` - Decrease by one prior `p.indent` level
 - And more...
+
+Note on indentation levels: each call to `p.indent(amount?)` pushes one level by the specified space amount (default 2). `p.dedent()` removes exactly one prior level per call; call it repeatedly to pop multiple levels.
 
 ## Requirements
 

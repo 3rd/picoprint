@@ -71,7 +71,7 @@ const formatColored = (value: unknown, seen: WeakSet<object>, indent = 0, inline
   const t = getType(value);
 
   // simple types
-  if (t === "string") return [sp + colors.green(inline ? String(value) : JSON.stringify(String(value)))];
+  if (t === "string") return [sp + (inline ? String(value) : colors.green(JSON.stringify(String(value))))];
   if (t === "number") return [sp + colors.yellow(String(value))];
   if (t === "bigint") return [sp + colors.yellow(`${value as bigint}n`)];
   if (t === "boolean") return [sp + colors.magenta(String(value))];

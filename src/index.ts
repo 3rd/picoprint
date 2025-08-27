@@ -15,7 +15,7 @@ import { calendar, calendarWithEvents } from "./modules/calendar";
 import { code } from "./modules/code";
 import * as colors from "./modules/colors";
 import { configure, getConfig, resetConfig } from "./modules/config";
-import { createContext, getCurrentContext } from "./modules/context";
+import { createContext, decreaseIndent, getCurrentContext, increaseIndent } from "./modules/context";
 import { compare, deepDiff, diff, diffWords } from "./modules/diff";
 import { line } from "./modules/line";
 import { prettyPrint } from "./modules/pp";
@@ -37,6 +37,8 @@ export type {
 
 type PPType = ((...args: Parameters<typeof prettyPrint>) => ReturnType<typeof prettyPrint>) & {
   log: (...args: unknown[]) => string;
+  indent: (amount?: number) => void;
+  dedent: () => void;
   box: typeof box;
   calendar: typeof calendar;
   calendarWithEvents: typeof calendarWithEvents;
@@ -89,6 +91,8 @@ const ppLog = (...args: unknown[]): string => {
 
 const pp = Object.assign((...args: Parameters<typeof prettyPrint>) => prettyPrint(...args), {
   log: ppLog,
+  indent: increaseIndent,
+  dedent: decreaseIndent,
   box,
   calendar,
   calendarWithEvents,

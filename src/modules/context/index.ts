@@ -6,5 +6,7 @@ export {
   getEffectiveWidth,
   popContext,
   pushContext,
+  increaseIndent,
+  decreaseIndent,
 } from "./context";
 export type { RenderContext } from "./context";
