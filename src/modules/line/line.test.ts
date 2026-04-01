@@ -1,29 +1,24 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { line, LineOptions } from "./line";
 
 describe("line module", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   describe("line", () => {
     it("should draw a basic line with default settings", () => {
       line();
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toBeDefined();
       expect(output).toContain("─");
@@ -32,7 +27,7 @@ describe("line module", () => {
     it("should handle string parameter as label", () => {
       line("Test Label");
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("Test Label");
     });
@@ -89,7 +84,7 @@ describe("line module", () => {
     });
 
     it("should align label to left", () => {
-      line({ label: "Left", align: "left", width: 20 });
+      line({ label: "Left", labelAlign: "left", width: 20 });
 
       const output = logOutput[0];
       expect(output).toContain("Left");
@@ -97,7 +92,7 @@ describe("line module", () => {
     });
 
     it("should align label to right", () => {
-      line({ label: "Right", align: "right", width: 20 });
+      line({ label: "Right", labelAlign: "right", width: 20 });
 
       const output = logOutput[0];
       expect(output).toContain("Right");
@@ -148,7 +143,7 @@ describe("line module", () => {
     it("should draw thin line", () => {
       line.thin();
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("─");
     });
@@ -232,7 +227,7 @@ describe("line module", () => {
     it("should draw rounded line via helper", () => {
       line.rounded();
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("─");
     });
@@ -241,7 +236,7 @@ describe("line module", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       line.gradient({ start: String as any, end: String as any });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toBeDefined();
       expect(output?.length).toBeGreaterThan(0);
@@ -253,7 +248,7 @@ describe("line module", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       line.gradient({ start: wrapA as any, end: wrapB as any });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0] ?? "";
       expect(output.length).toBeGreaterThan(0);
     });
@@ -263,7 +258,7 @@ describe("line module", () => {
     it("should handle separator as false (no separators)", () => {
       line({ label: "No Separators", separator: false });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("No Separators");
       expect(output).not.toContain("├");
@@ -273,7 +268,7 @@ describe("line module", () => {
     it("should handle separator as string (same for both sides)", () => {
       line({ label: "Custom Sep", separator: "|" });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("Custom Sep");
       expect(output).toContain("|");
@@ -282,7 +277,7 @@ describe("line module", () => {
     it("should handle separator as object (different left/right)", () => {
       line({ label: "Different Seps", separator: { left: "[", right: "]" } });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("Different Seps");
       expect(output).toContain("[");
@@ -292,7 +287,7 @@ describe("line module", () => {
     it("should use default separators for single style when not specified", () => {
       line({ label: "Default Single", style: "single" });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("Default Single");
       expect(output).toContain("├");
@@ -302,7 +297,7 @@ describe("line module", () => {
     it("should have separators by default for dashed style", () => {
       line({ label: "Dashed Default", style: "dashed" });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("Dashed Default");
       expect(output).toContain("├");
@@ -312,7 +307,7 @@ describe("line module", () => {
     it("should allow custom separators with any style", () => {
       line({ label: "Dashed Custom", style: "dashed", separator: "~" });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("Dashed Custom");
       expect(output).toContain("~");
@@ -323,7 +318,7 @@ describe("line module", () => {
     it("should handle zero width", () => {
       line({ width: 0 });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toBeDefined();
     });
@@ -331,7 +326,7 @@ describe("line module", () => {
     it("should handle negative width", () => {
       line({ width: -10 });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toBeDefined();
     });
@@ -340,7 +335,7 @@ describe("line module", () => {
       const longLabel = "This is a very long label that might exceed the available width";
       line({ label: longLabel, width: 30 });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain(longLabel);
     });
@@ -348,7 +343,7 @@ describe("line module", () => {
     it("should handle empty label", () => {
       line({ label: "" });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toBeDefined();
     });
@@ -357,7 +352,7 @@ describe("line module", () => {
       const coloredLabel = "\u001b[31mRed Label\u001b[0m";
       line({ label: coloredLabel });
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toContain("Red Label");
     });
@@ -365,7 +360,7 @@ describe("line module", () => {
     it("should handle undefined options", () => {
       line(undefined as unknown as LineOptions);
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toBeDefined();
     });
@@ -373,7 +368,7 @@ describe("line module", () => {
     it("should handle null options", () => {
       line(null as unknown as LineOptions);
 
-      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logOutput).toHaveLength(1);
       const output = logOutput[0];
       expect(output).toBeDefined();
     });

@@ -1,30 +1,25 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { _resetWriterStack, pushWriter, write } from "@/utils/writer";
 import { colors } from "../colors";
 import { createContext } from "../context";
 import { box } from "./box";
 
 describe("box", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   it("should create a basic box with default settings", () => {
     box("Test content");
 
-    expect(logSpy).toHaveBeenCalled();
+    expect(logOutput.length).toBeGreaterThan(0);
     expect(logOutput.length).toBeGreaterThan(2);
 
     const output = logOutput.join("\n");
@@ -95,7 +90,7 @@ describe("box", () => {
   it("should handle custom width", () => {
     box("Test", { width: 20 });
 
-    expect(logSpy).toHaveBeenCalled();
+    expect(logOutput.length).toBeGreaterThan(0);
     for (const line of logOutput) {
       // eslint-disable-next-line no-control-regex
       const cleanLine = line.replace(/\u001b\[[\d;]*m/g, "");
@@ -122,7 +117,7 @@ describe("box", () => {
       "This is a very long line of text that should definitely wrap when placed in a narrow box";
     box(longText, { width: 30 });
 
-    expect(logSpy).toHaveBeenCalled();
+    expect(logOutput.length).toBeGreaterThan(0);
     expect(logOutput.join("\n")).toContain("This is");
   });
 
@@ -138,14 +133,14 @@ describe("box", () => {
   it("should handle empty content", () => {
     box("");
 
-    expect(logSpy).toHaveBeenCalled();
+    expect(logOutput.length).toBeGreaterThan(0);
     expect(logOutput.length).toBeGreaterThan(2);
   });
 
   it("should capture console output when given a function", async () => {
     box(() => {
-      console.log("Captured line 1");
-      console.log("Captured line 2");
+      write("Captured line 1");
+      write("Captured line 2");
     });
 
     const capturedLines = logOutput.filter(
@@ -163,27 +158,6 @@ describe("box", () => {
     expect(logOutput.join("\n")).toContain("...");
   });
 
-  describe("box.frame", () => {
-    it("should create a frame with no padding", () => {
-      box.frame("Test content");
-
-      const output = logOutput.join("\n");
-      expect(output).toContain("Test content");
-      expect(output).toContain("┌");
-      expect(output).toContain("┐");
-      expect(output).toContain("└");
-      expect(output).toContain("┘");
-    });
-
-    it("should accept custom options", () => {
-      box.frame("Test", { style: "double", color: colors.red });
-
-      const output = logOutput.join("\n");
-      expect(output).toContain("╔");
-      expect(output).toContain("╗");
-    });
-  });
-
   describe("box.panel", () => {
     it("should create a panel with rounded corners and extra padding", () => {
       box.panel("Test content", "Panel Title");
@@ -199,8 +173,8 @@ describe("box", () => {
 
     it("should capture console output when given a function", async () => {
       box.panel("Test Panel", () => {
-        console.log("Panel line 1");
-        console.log("Panel line 2");
+        write("Panel line 1");
+        write("Panel line 2");
       });
 
       const output = logOutput.join("\n");
@@ -213,7 +187,7 @@ describe("box", () => {
     });
 
     it("should accept custom options", () => {
-      box.panel("Content", "Title", { color: colors.green });
+      box.panel("Content", "Title", { borderColor: colors.green });
 
       const output = logOutput.join("\n");
       expect(output).toContain("Title");
@@ -224,7 +198,7 @@ describe("box", () => {
   describe("edge cases", () => {
     it("should return the callback's return value", async () => {
       const result = box(() => {
-        console.log("Inside box");
+        write("Inside box");
         return 42;
       });
 
@@ -234,7 +208,7 @@ describe("box", () => {
 
     it("should return the callback's return value for panel", async () => {
       const result = box.panel("Test Panel", () => {
-        console.log("Panel content");
+        write("Panel content");
         return { value: "test" };
       });
 
@@ -242,10 +216,11 @@ describe("box", () => {
       expect(logOutput.join("\n")).toContain("Panel content");
     });
 
-    it("should return void for string content", () => {
+    it("should return string for string content", () => {
       const result = box("String content");
 
-      expect(result).toBe(undefined);
+      expect(typeof result).toBe("string");
+      expect(result).toContain("String content");
       expect(logOutput.join("\n")).toContain("String content");
     });
 
@@ -259,7 +234,7 @@ describe("box", () => {
     it("should handle very narrow boxes", () => {
       box("Test", { width: 10 });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       for (const line of logOutput) {
         // eslint-disable-next-line no-control-regex
         const cleanLine = line.replace(/\u001b\[[\d;]*m/g, "");
@@ -275,12 +250,12 @@ describe("box", () => {
 
     it("should handle undefined values in captured output", async () => {
       box(() => {
-        console.log(undefined);
-        console.log(null);
-        console.log(123);
+        write(String(undefined));
+        write(String(null));
+        write(String(123));
       });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("undefined");
       expect(output).toContain("null");
@@ -292,7 +267,7 @@ describe("box", () => {
     it("renders box without indentation when no context provided", () => {
       box("Test content");
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const firstLine = logOutput[0] ?? "";
       // eslint-disable-next-line no-control-regex
       const cleanFirstLine = firstLine.replace(/\u001b\[[\d;]*m/g, "");
@@ -301,9 +276,9 @@ describe("box", () => {
 
     it("renders box with indentation when context has offset", () => {
       const ctx = createContext(4);
-      box("Test content", { context: ctx });
+      box("Test content", { renderContext: ctx });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
 
       // All lines should start with 4 spaces
       for (const line of logOutput) {
@@ -316,9 +291,9 @@ describe("box", () => {
       const ctx2 = ctx1.indent(2);
       const ctx3 = ctx2.indent(2);
 
-      box("Level 1", { context: ctx1 });
-      box("Level 2", { context: ctx2 });
-      box("Level 3", { context: ctx3 });
+      box("Level 1", { renderContext: ctx1 });
+      box("Level 2", { renderContext: ctx2 });
+      box("Level 3", { renderContext: ctx3 });
 
       const lines = logOutput;
 
@@ -343,7 +318,7 @@ describe("box", () => {
       }
 
       const ctx = createContext(10);
-      box("Test", { context: ctx });
+      box("Test", { renderContext: ctx });
 
       for (const line of logOutput) {
         // eslint-disable-next-line no-control-regex
@@ -365,9 +340,9 @@ describe("box", () => {
         ctx = ctx.indent(2);
       }
 
-      box("Deep nested", { context: ctx });
+      box("Deep nested", { renderContext: ctx });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
 
       const firstLine = logOutput[0];
       expect(firstLine).toMatch(/^ {40}/);
@@ -375,13 +350,13 @@ describe("box", () => {
 
     it("supports callback-based nested rendering", async () => {
       await box(async () => {
-        console.log("Level 1");
+        write("Level 1");
         box(() => {
-          console.log("Level 2");
+          write("Level 2");
         });
       });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("Level 1");
       expect(output).toContain("Level 2");
@@ -400,9 +375,9 @@ describe("box", () => {
       const ctx = createContext(4);
       const indent = " ".repeat(ctx.offset);
 
-      console.log(`${indent}Regular text`);
-      box("Box content", { context: ctx });
-      console.log(`${indent}More regular text`);
+      write(`${indent}Regular text`);
+      box("Box content", { renderContext: ctx });
+      write(`${indent}More regular text`);
 
       for (const line of logOutput) {
         expect(line).toMatch(/^ {4}/); // 4 spaces
@@ -419,7 +394,7 @@ describe("box", () => {
         await new Promise<void>((resolve) => {
           setTimeout(resolve, 10);
         });
-        console.log("Async content");
+        write("Async content");
         return "async result";
       });
 
@@ -440,7 +415,7 @@ describe("box", () => {
     it("should handle async callbacks with nested async operations", async () => {
       const result = await box(async () => {
         const data = await Promise.resolve("fetched data");
-        console.log(`Got: ${data}`);
+        write(`Got: ${data}`);
         return data;
       });
 
@@ -448,25 +423,12 @@ describe("box", () => {
       expect(logOutput.join("\n")).toContain("Got: fetched data");
     });
 
-    it("should handle async callbacks in box.frame", async () => {
-      const result = await box.frame(async () => {
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 10);
-        });
-        console.log("Frame async");
-        return 123;
-      });
-
-      expect(result).toBe(123);
-      expect(logOutput.join("\n")).toContain("Frame async");
-    });
-
     it("should handle async callbacks in box.panel", async () => {
       const result = await box.panel("Async Panel", async () => {
         await new Promise<void>((resolve) => {
           setTimeout(resolve, 10);
         });
-        console.log("Panel async");
+        write("Panel async");
         return { success: true };
       });
 
@@ -477,9 +439,9 @@ describe("box", () => {
 
     it("should handle mixed sync and async nested boxes", async () => {
       const result = await box(async () => {
-        console.log("Outer async");
+        write("Outer async");
         const innerResult = box(() => {
-          console.log("Inner sync");
+          write("Inner sync");
           return 99;
         });
         return innerResult * 2;
@@ -488,6 +450,35 @@ describe("box", () => {
       expect(result).toBe(198);
       expect(logOutput.join("\n")).toContain("Outer async");
       expect(logOutput.join("\n")).toContain("Inner sync");
+    });
+
+    it("should isolate concurrent async boxes", async () => {
+      const delay = (ms: number) =>
+        new Promise<void>((r) => {
+          setTimeout(r, ms);
+        });
+      const [resultA, resultB] = await Promise.all([
+        box(async () => {
+          write("A1");
+          await delay(30);
+          write("A2");
+          return "A";
+        }),
+        box(async () => {
+          write("B1");
+          await delay(10);
+          write("B2");
+          return "B";
+        }),
+      ]);
+
+      expect(resultA).toBe("A");
+      expect(resultB).toBe("B");
+      const output = logOutput.join("\n");
+      expect(output).toContain("A1");
+      expect(output).toContain("A2");
+      expect(output).toContain("B1");
+      expect(output).toContain("B2");
     });
   });
 
@@ -503,7 +494,7 @@ describe("box", () => {
     it("should accept background color option", () => {
       box("test content", { background: colors.bgRed });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.length).toBeGreaterThan(0);
 
       const allOutput = logOutput.join("");
@@ -587,8 +578,8 @@ describe("box", () => {
     it("should apply background to captured function output", async () => {
       box(
         () => {
-          console.log("Function output line 1");
-          console.log("Function output line 2");
+          write("Function output line 1");
+          write("Function output line 2");
         },
         { background: colors.bgCyan, padding: 1 },
       );

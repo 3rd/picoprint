@@ -3,9 +3,9 @@ import p from "@/.";
 import { printExample } from "./_helpers";
 
 // Color support
-console.log(p.bold("Color support:"));
-if (p.isColorSupported()) {
-  console.log(p.green("✓ Colors are supported in this terminal"));
+console.log(p.color.bold("Color support:"));
+if (p.color.isColorSupported()) {
+  console.log(p.color.green("✓ Colors are supported in this terminal"));
 } else {
   console.log("✗ Colors are not supported in this terminal");
 }
@@ -19,73 +19,73 @@ printExample("Colors", [
   {
     title: "Basic colors",
     handler: () => {
-      console.log(p.bold("Basic colors:"));
-      console.log(p.black("Black text"));
-      console.log(p.red("Red text"));
-      console.log(p.green("Green text"));
-      console.log(p.yellow("Yellow text"));
-      console.log(p.blue("Blue text"));
-      console.log(p.magenta("Magenta text"));
-      console.log(p.cyan("Cyan text"));
-      console.log(p.white("White text"));
-      console.log(p.gray("Gray text"));
-      console.log(p.grey("Grey text (alias)"));
+      p.log(p.color.bold("Basic colors:"));
+      p.log(p.color.black("Black text"));
+      p.log(p.color.red("Red text"));
+      p.log(p.color.green("Green text"));
+      p.log(p.color.yellow("Yellow text"));
+      p.log(p.color.blue("Blue text"));
+      p.log(p.color.magenta("Magenta text"));
+      p.log(p.color.cyan("Cyan text"));
+      p.log(p.color.white("White text"));
+      p.log(p.color.gray("Gray text"));
+      p.log(p.color.grey("Grey text (alias)"));
     },
   },
   {
     title: "Bright colors",
     handler: () => {
-      console.log(p.bold("Bright colors:"));
-      console.log(p.blackBright("Bright black text"));
-      console.log(p.redBright("Bright red text"));
-      console.log(p.greenBright("Bright green text"));
-      console.log(p.yellowBright("Bright yellow text"));
-      console.log(p.blueBright("Bright blue text"));
-      console.log(p.magentaBright("Bright magenta text"));
-      console.log(p.cyanBright("Bright cyan text"));
-      console.log(p.whiteBright("Bright white text"));
+      p.log(p.color.bold("Bright colors:"));
+      p.log(p.color.blackBright("Bright black text"));
+      p.log(p.color.redBright("Bright red text"));
+      p.log(p.color.greenBright("Bright green text"));
+      p.log(p.color.yellowBright("Bright yellow text"));
+      p.log(p.color.blueBright("Bright blue text"));
+      p.log(p.color.magentaBright("Bright magenta text"));
+      p.log(p.color.cyanBright("Bright cyan text"));
+      p.log(p.color.whiteBright("Bright white text"));
     },
   },
   {
     title: "Text modifiers",
     handler: () => {
-      console.log(p.bold("Text modifiers:"));
-      console.log(p.bold("Bold text"));
-      console.log(p.dim("Dim text"));
-      console.log(p.italic("Italic text"));
-      console.log(p.underline("Underlined text"));
-      console.log(p.inverse("Inverse text"));
-      console.log(p.strikethrough("Strikethrough text"));
-      console.log(p.reset("Reset text"));
+      p.log(p.color.bold("Text modifiers:"));
+      p.log(p.color.bold("Bold text"));
+      p.log(p.color.dim("Dim text"));
+      p.log(p.color.italic("Italic text"));
+      p.log(p.color.underline("Underlined text"));
+      p.log(p.color.inverse("Inverse text"));
+      p.log(p.color.strikethrough("Strikethrough text"));
+      p.log(p.color.reset("Reset text"));
     },
   },
   {
     title: "Background colors",
     handler: () => {
-      console.log(p.bold("Background colors:"));
-      console.log(p.bgBlack.white("White on black background"));
-      console.log(p.bgRed("Red background"));
-      console.log(p.bgGreen("Green background"));
-      console.log(p.bgYellow.black("Black on yellow background"));
-      console.log(p.bgBlue.white("White on blue background"));
-      console.log(p.bgMagenta("Magenta background"));
-      console.log(p.bgCyan.black("Black on cyan background"));
-      console.log(p.bgWhite.black("Black on white background"));
-      console.log(p.bgGray("Gray background"));
+      p.log(p.color.bold("Background colors:"));
+      p.log(p.color.bgBlack.white("White on black background"));
+      p.log(p.color.bgRed("Red background"));
+      p.log(p.color.bgGreen("Green background"));
+      p.log(p.color.bgYellow.black("Black on yellow background"));
+      p.log(p.color.bgBlue.white("White on blue background"));
+      p.log(p.color.bgMagenta("Magenta background"));
+      p.log(p.color.bgCyan.black("Black on cyan background"));
+      p.log(p.color.bgWhite.black("Black on white background"));
+      p.log(p.color.bgGray("Gray background"));
     },
   },
   {
     title: "Bright background colors",
     handler: () => {
-      console.log(p.bold("Bright background colors:"));
-      console.log(p.bgBlackBright.white("White on bright black background"));
-      console.log(p.bgRedBright.black("Black on bright red background"));
-      console.log(p.bgGreenBright.black("Black on bright green background"));
-      console.log(p.bgYellowBright.black("Black on bright yellow background"));
-      console.log(p.bgBlueBright.white("White on bright blue background"));
-      console.log(p.bgMagentaBright.white("White on bright magenta background"));
-      console.log(p.bgCyanBright.black("Black on bright cyan background"));
-      console.log(p.bgWhiteBright.black("Black on bright white background"));
+      p.log(p.color.bold("Bright background colors:"));
+      p.log(p.color.bgBlackBright.white("White on bright black background"));
+      p.log(p.color.bgRedBright.black("Black on bright red background"));
+      p.log(p.color.bgGreenBright.black("Black on bright green background"));
+      p.log(p.color.bgYellowBright.black("Black on bright yellow background"));
+      p.log(p.color.bgBlueBright.white("White on bright blue background"));
+      p.log(p.color.bgMagentaBright.white("White on bright magenta background"));
+      p.log(p.color.bgCyanBright.black("Black on bright cyan background"));
+      p.log(p.color.bgWhiteBright.black("Black on bright white background"));
     },
   },
 ]);
@@ -95,10 +95,10 @@ printExample("256 Colors", [
   {
     title: "256 colors",
     handler: () => {
-      console.log(p.bold("256 colors:"));
+      p.log(p.color.bold("256 colors:"));
       const color256Examples = [16, 21, 51, 82, 118, 154, 190, 196, 202, 208, 214, 220, 226];
-      console.log(`Foreground: ${color256Examples.map((col) => p.color256(col)(`■${col}`)).join(" ")}`);
-      console.log(`Background: ${color256Examples.map((col) => p.bgColor256(col)(`${col}  `)).join(" ")}`);
+      p.log(`Foreground: ${color256Examples.map((col) => p.color.color256(col)(`■${col}`)).join(" ")}`);
+      p.log(`Background: ${color256Examples.map((col) => p.color.bgColor256(col)(`${col}  `)).join(" ")}`);
     },
   },
 ]);
@@ -108,14 +108,14 @@ printExample("RGB Colors", [
   {
     title: "RGB colors",
     handler: () => {
-      console.log(p.bold("RGB colors:"));
-      console.log(
-        `${p.rgb(255, 0, 0)("Pure Red")} | ${p.rgb(0, 255, 0)("Pure Green")} | ${p.rgb(0, 0, 255)("Pure Blue")}`,
+      p.log(p.color.bold("RGB colors:"));
+      p.log(
+        `${p.color.rgb(255, 0, 0)("Pure Red")} | ${p.color.rgb(0, 255, 0)("Pure Green")} | ${p.color.rgb(0, 0, 255)("Pure Blue")}`,
       );
-      console.log(
-        `${p.rgb(255, 12, 0)("Orange")} | ${p.rgb(12, 0, 255)("Purple")} | ${p.rgb(255, 0, 12)("Pink")}`,
+      p.log(
+        `${p.color.rgb(255, 12, 0)("Orange")} | ${p.color.rgb(12, 0, 255)("Purple")} | ${p.color.rgb(255, 0, 12)("Pink")}`,
       );
-      console.log(`${p.bgRgb(64, 64, 64)(p.rgb(255, 255, 255)("White on dark gray RGB background"))}`);
+      p.log(`${p.color.bgRgb(64, 64, 64)(p.color.rgb(255, 255, 255)("White on dark gray RGB background"))}`);
     },
   },
 ]);
@@ -125,12 +125,12 @@ printExample("Hex Colors", [
   {
     title: "Hex colors",
     handler: () => {
-      console.log(p.bold("Hex colors:"));
-      console.log(`${p.hex("#FF5733")("#FF5733 Coral")}`);
-      console.log(`${p.hex("#33FF57")("#33FF57 Lime")}`);
-      console.log(`${p.hex("#3357FF")("#3357FF Royal Blue")}`);
-      console.log(`${p.hex("#FF33F5")("#FF33F5 Hot Pink")}`);
-      console.log(`${p.bgHex("#2C3E50")(p.hex("#ECF0F1")("#ECF0F1 on #2C3E50 background"))}`);
+      p.log(p.color.bold("Hex colors:"));
+      p.log(`${p.color.hex("#FF5733")("#FF5733 Coral")}`);
+      p.log(`${p.color.hex("#33FF57")("#33FF57 Lime")}`);
+      p.log(`${p.color.hex("#3357FF")("#3357FF Royal Blue")}`);
+      p.log(`${p.color.hex("#FF33F5")("#FF33F5 Hot Pink")}`);
+      p.log(`${p.color.bgHex("#2C3E50")(p.color.hex("#ECF0F1")("#ECF0F1 on #2C3E50 background"))}`);
     },
   },
 ]);
@@ -140,13 +140,13 @@ printExample("Combined Styles", [
   {
     title: "Combined styles",
     handler: () => {
-      console.log(p.bold("Combined styles:"));
-      console.log(`${p.bold.red("Bold red text")}`);
-      console.log(`${p.underline.green("Underlined green text")}`);
-      console.log(`${p.italic.blue("Italic blue text")}`);
-      console.log(`${p.bgYellow.bold.red("Bold red on yellow")}`);
-      console.log(`${p.inverse.cyan("Inverted cyan text")}`);
-      console.log(`${p.dim.strikethrough("Dim strikethrough text")}`);
+      p.log(p.color.bold("Combined styles:"));
+      p.log(`${p.color.bold.red("Bold red text")}`);
+      p.log(`${p.color.underline.green("Underlined green text")}`);
+      p.log(`${p.color.italic.blue("Italic blue text")}`);
+      p.log(`${p.color.bgYellow.bold.red("Bold red on yellow")}`);
+      p.log(`${p.color.inverse.cyan("Inverted cyan text")}`);
+      p.log(`${p.color.dim.strikethrough("Dim strikethrough text")}`);
     },
   },
 ]);
@@ -156,10 +156,10 @@ printExample("Rainbow Text", [
   {
     title: "Rainbow text",
     handler: () => {
-      console.log(p.bold("Rainbow text:"));
-      console.log(`${p.rainbow("This is rainbow colored text! 🌈")}`);
-      console.log(`${p.rainbow("ABCDEFGHIJKLMNOPQRSTUVWXYZ")}`);
-      console.log(`${p.rainbow("0123456789 !@#$%^&*()")}`);
+      p.log(p.color.bold("Rainbow text:"));
+      p.log(`${p.color.rainbow("This is rainbow colored text! 🌈")}`);
+      p.log(`${p.color.rainbow("ABCDEFGHIJKLMNOPQRSTUVWXYZ")}`);
+      p.log(`${p.color.rainbow("0123456789 !@#$%^&*()")}`);
     },
   },
 ]);
@@ -169,49 +169,49 @@ printExample("Gradient Text", [
   {
     title: "Standard colors",
     handler: () => {
-      console.log(p.bold("Gradient text (standard colors):"));
-      console.log(
-        `${p.gradient("Smooth gradient from red to blue with proper interpolation", p.red, p.blue)}`,
+      p.log(p.color.bold("Gradient text (standard colors):"));
+      p.log(
+        `${p.color.gradient("Smooth gradient from red to blue with proper interpolation", p.color.red, p.color.blue)}`,
       );
-      console.log(
-        `${p.gradient("Gradient from green to magenta - notice the smooth transition", p.green, p.magenta)}`,
+      p.log(
+        `${p.color.gradient("Gradient from green to magenta - notice the smooth transition", p.color.green, p.color.magenta)}`,
       );
-      console.log(
-        `${p.gradient("Yellow to cyan gradient with character-by-character color change", p.yellow, p.cyan)}`,
+      p.log(
+        `${p.color.gradient("Yellow to cyan gradient with character-by-character color change", p.color.yellow, p.color.cyan)}`,
       );
-      console.log(
-        `${p.gradient("Black to white gradient creates a grayscale effect", p.black, p.white)}`,
+      p.log(
+        `${p.color.gradient("Black to white gradient creates a grayscale effect", p.color.black, p.color.white)}`,
       );
     },
   },
   {
     title: "RGB gradients",
     handler: () => {
-      console.log(p.bold("Gradient text (RGB):"));
-      console.log(
-        `${p.gradientRgb("Custom RGB gradient from orange to purple", { r: 255, g: 127, b: 0 }, { r: 127, g: 0, b: 255 })}`,
+      p.log(p.color.bold("Gradient text (RGB):"));
+      p.log(
+        `${p.color.gradientRgb("Custom RGB gradient from orange to purple", { r: 255, g: 127, b: 0 }, { r: 127, g: 0, b: 255 })}`,
       );
-      console.log(
-        `${p.gradientRgb("Sunset gradient from red-orange to deep purple", { r: 255, g: 94, b: 77 }, { r: 84, g: 74, b: 125 })}`,
+      p.log(
+        `${p.color.gradientRgb("Sunset gradient from red-orange to deep purple", { r: 255, g: 94, b: 77 }, { r: 84, g: 74, b: 125 })}`,
       );
     },
   },
   {
     title: "Hex gradients",
     handler: () => {
-      console.log(p.bold("Gradient text (Hex colors):"));
-      console.log(`${p.gradientHex("Oceanic gradient from teal to deep blue", "#20B2AA", "#000080")}`);
-      console.log(`${p.gradientHex("Fire gradient from bright yellow to deep red", "#FFD700", "#8B0000")}`);
-      console.log(`${p.gradientHex("Nature gradient from forest green to sky blue", "#228B22", "#87CEEB")}`);
+      p.log(p.color.bold("Gradient text (Hex colors):"));
+      p.log(`${p.color.gradientHex("Oceanic gradient from teal to deep blue", "#20B2AA", "#000080")}`);
+      p.log(`${p.color.gradientHex("Fire gradient from bright yellow to deep red", "#FFD700", "#8B0000")}`);
+      p.log(`${p.color.gradientHex("Nature gradient from forest green to sky blue", "#228B22", "#87CEEB")}`);
     },
   },
   {
     title: "Long text gradient",
     handler: () => {
-      console.log(p.bold("Long text gradient demonstration:"));
+      p.log(p.color.bold("Long text gradient demonstration:"));
       const longText =
         "This is a longer text to demonstrate how the gradient smoothly transitions across many characters.";
-      console.log(`${p.gradientHex(longText, "#FF1493", "#00CED1")}`);
+      p.log(`${p.color.gradientHex(longText, "#FF1493", "#00CED1")}`);
     },
   },
 ]);
@@ -221,18 +221,18 @@ printExample("Color Palettes", [
   {
     title: "Palettes",
     handler: () => {
-      console.log(p.bold("Color palettes:"));
-      const palette1 = p.palette("#FF0000", 7);
-      console.log(
-        `Red palette:     ${palette1.map((col) => p.hex(col)("██")).join(" ")}\n  ${palette1.join(" ")}`,
+      p.log(p.color.bold("Color palettes:"));
+      const palette1 = p.color.palette("#FF0000", 7);
+      p.log(
+        `Red palette:     ${palette1.map((col) => p.color.hex(col)("██")).join(" ")}\n  ${palette1.join(" ")}`,
       );
-      const palette2 = p.palette("#00FF00", 7);
-      console.log(
-        `Green palette:   ${palette2.map((col) => p.hex(col)("██")).join(" ")}\n  ${palette2.join(" ")}`,
+      const palette2 = p.color.palette("#00FF00", 7);
+      p.log(
+        `Green palette:   ${palette2.map((col) => p.color.hex(col)("██")).join(" ")}\n  ${palette2.join(" ")}`,
       );
-      const palette3 = p.palette("#0000FF", 7);
-      console.log(
-        `Blue palette:    ${palette3.map((col) => p.hex(col)("██")).join(" ")}\n  ${palette3.join(" ")}`,
+      const palette3 = p.color.palette("#0000FF", 7);
+      p.log(
+        `Blue palette:    ${palette3.map((col) => p.color.hex(col)("██")).join(" ")}\n  ${palette3.join(" ")}`,
       );
     },
   },
@@ -243,7 +243,7 @@ printExample("Type Colors", [
   {
     title: "Type colors",
     handler: () => {
-      console.log(p.bold("Type colors:"));
+      p.log(p.color.bold("Type colors:"));
       const types = [
         "string",
         "number",
@@ -259,8 +259,8 @@ printExample("Type Colors", [
         "object",
       ];
       for (const type of types) {
-        const colorFn = p.typeColor(type);
-        console.log(`${type.padEnd(10)} → ${colorFn(type)}`);
+        const colorFn = p.color.typeColor(type);
+        p.log(`${type.padEnd(10)} → ${colorFn(type)}`);
       }
     },
   },

@@ -1,8 +1,10 @@
-import type { ForegroundColorFunction } from "../../utils/colors";
+import type { ForegroundColorFunction } from "@/utils/colors";
+import { stripAnsi } from "@/utils/ansi";
+import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
+import { renderAndReturn, write } from "@/utils/writer";
 import type { RenderContext } from "../context";
-import { stripAnsi } from "../../utils/ansi";
-import { getLineStyle, type LineStyleName } from "../../utils/line-styles";
 import * as c from "../colors";
+import { getConfig } from "../config";
 import { getCurrentContext } from "../context";
 
 export interface LineOptions {
@@ -10,11 +12,11 @@ export interface LineOptions {
   style?: LineStyleName;
   color?: ForegroundColorFunction;
   label?: string;
-  align?: "center" | "left" | "right";
+  labelAlign?: "center" | "left" | "right";
   padding?: number;
   separator?: { left: string; right: string } | false | string;
   titleColor?: (text: string) => string;
-  context?: RenderContext;
+  renderContext?: RenderContext;
 }
 
 type LineStyle = LineStyleName;
@@ -111,87 +113,89 @@ const buildLabeledLine = (params: BuildLabeledLineParams) => {
   return colorFn(leftPart) + displayMiddlePart + colorFn(rightPart);
 };
 
-export const line = (options: LineOptions | string = {}) => {
-  const opts: LineOptions = typeof options === "string" ? { label: options } : options || {};
+export const line = (options: LineOptions | string = {}) =>
+  renderAndReturn(() => {
+    const opts: LineOptions = typeof options === "string" ? { label: options } : options || {};
 
-  const ctx = opts.context ?? getCurrentContext();
-  const width = opts.width ?? ctx.getWidth();
-  const style = opts.style ?? "single";
-  const align = opts.align ?? "center";
-  const padding = opts.padding ?? 1;
+    const ctx = opts.renderContext ?? getCurrentContext();
+    const width = opts.width ?? ctx.getWidth();
+    const style = opts.style ?? getConfig().defaults?.style ?? "single";
+    const align = opts.labelAlign ?? "center";
+    const padding = opts.padding ?? 1;
 
-  const colorFn = opts.color ?? c.dim;
-  const indent = " ".repeat(ctx.offset);
+    const colorFn = opts.color ?? c.dim;
+    const indent = " ".repeat(ctx.offset);
 
-  if (opts.label) {
-    console.log(
-      indent +
-        buildLabeledLine({
-          width,
-          style,
-          colorFn,
-          label: opts.label,
-          align,
-          padding,
-          separator: opts.separator,
-          titleColor: opts.titleColor,
-        }),
-    );
-  } else {
-    console.log(indent + buildSimpleLine(width, style, colorFn));
-  }
-};
+    if (opts.label) {
+      write(
+        indent +
+          buildLabeledLine({
+            width,
+            style,
+            colorFn,
+            label: opts.label,
+            align,
+            padding,
+            separator: opts.separator,
+            titleColor: opts.titleColor,
+          }),
+      );
+    } else {
+      write(indent + buildSimpleLine(width, style, colorFn));
+    }
+  });
 
 line.thin = (label?: string) => {
-  line({ style: "single", color: c.dim, label });
+  return line({ style: "single", color: c.dim, label });
 };
 
 line.thick = (label?: string) => {
-  line({ style: "thick", color: c.gray, label });
+  return line({ style: "thick", color: c.gray, label });
 };
 
 line.double = (label?: string) => {
-  line({ style: "double", color: c.blue, label });
+  return line({ style: "double", color: c.blue, label });
 };
 
 line.dashed = (label?: string) => {
-  line({ style: "dashed", color: c.dim, label });
+  return line({ style: "dashed", color: c.dim, label });
 };
 
 line.dotted = (label?: string) => {
-  line({ style: "dotted", color: c.gray, label });
+  return line({ style: "dotted", color: c.gray, label });
 };
 
 line.rounded = (label?: string) => {
-  line({ style: "rounded", color: c.green, label });
+  return line({ style: "rounded", color: c.green, label });
 };
 
 line.ascii = (label?: string) => {
-  line({ style: "ascii", color: c.white, label });
+  return line({ style: "ascii", color: c.white, label });
 };
 
 line.bold = (label?: string) => {
-  line({ style: "bold", color: c.yellow, label });
+  return line({ style: "bold", color: c.yellow, label });
 };
 
 line.light = (label?: string) => {
-  line({ style: "light", color: c.dim, label });
+  return line({ style: "light", color: c.dim, label });
 };
 
 line.section = (label: string) => {
-  line({ style: "double", color: c.cyan, label, padding: 2 });
+  return line({ style: "double", color: c.cyan, label, padding: 2 });
 };
 
 line.gradient = (options: {
-  context?: RenderContext;
+  renderContext?: RenderContext;
   start: ForegroundColorFunction;
   end: ForegroundColorFunction;
-}) => {
-  const ctx = options.context ?? getCurrentContext();
-  const width = ctx.getWidth();
-  const indent = " ".repeat(ctx.offset);
-  const lineChar = getLineStyle("single").horizontal;
-  const base = lineChar.repeat(Math.max(0, width));
-  const colored = c.gradient(base, options.start, options.end);
-  console.log(indent + colored);
-};
+}) =>
+  renderAndReturn(() => {
+    const ctx = options.renderContext ?? getCurrentContext();
+    const width = ctx.getWidth();
+    const indent = " ".repeat(ctx.offset);
+    const lineChar = getLineStyle("single").horizontal;
+    const base = lineChar.repeat(Math.max(0, width));
+    const colored = c.gradient(base, options.start, options.end);
+    write(indent + colored);
+  });

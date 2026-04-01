@@ -14,7 +14,7 @@ describe("chainable colors (p.*)", () => {
   });
 
   it("applies left-to-right styles (bold then yellow)", () => {
-    const apply = p.bold.yellow;
+    const apply = p.color.bold.yellow;
     expect(typeof apply).toBe("function");
     const s = apply("text");
     expect(typeof s).toBe("string");
@@ -22,7 +22,7 @@ describe("chainable colors (p.*)", () => {
   });
 
   it("mixes foreground and background styles", () => {
-    const apply = p.yellow.bgBlue;
+    const apply = p.color.yellow.bgBlue;
     expect(typeof apply).toBe("function");
     const s = apply("X");
     expect(typeof s).toBe("string");
@@ -30,7 +30,7 @@ describe("chainable colors (p.*)", () => {
   });
 
   it("keeps brand of first style in chain (bg)", () => {
-    const fn = p.bgBlue.white as unknown as ((s: string) => string) & { __kind?: string };
+    const fn = p.color.bgBlue.white as unknown as ((s: string) => string) & { __kind?: string };
     expect(fn.__kind).toBe("bg");
     const out = fn("ok");
     expect(typeof out).toBe("string");

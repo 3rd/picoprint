@@ -10,10 +10,11 @@ import {
 import { formatWithTree } from "@/modules/pp/tree";
 import { applyTextWrapping } from "@/utils/string";
 import { isSimpleValue } from "@/utils/value-helpers";
+import { write } from "@/utils/writer";
 import type { Closable } from "./_shared";
 
 export interface PPStreamOptions extends PrettyPrintOptions {
-  context?: RenderContext;
+  renderContext?: RenderContext;
 }
 export interface PPStream extends Closable {
   value: (v: unknown) => void;
@@ -21,7 +22,7 @@ export interface PPStream extends Closable {
 }
 
 export const pp = (opts: PPStreamOptions = {}): PPStream => {
-  const ctx = opts.context ?? getCurrentContext();
+  const ctx = opts.renderContext ?? getCurrentContext();
   const indentBase = " ".repeat(ctx.offset);
 
   const printValue = (value: unknown) => {
@@ -37,26 +38,26 @@ export const pp = (opts: PPStreamOptions = {}): PPStream => {
 
     if (isSimpleValue(value)) {
       const wrapped = applyTextWrapping(formatPrimitive(value), width, "");
-      for (const line of wrapped) console.log(indentBase + line);
+      for (const line of wrapped) write(indentBase + line);
       return;
     }
 
     if (fctx.compact && canBeCompacted(value, fctx.seen)) {
       const compactStr =
         Array.isArray(value) ? formatCompactArray(value) : formatCompactObject(value as object);
-      for (const line of applyTextWrapping(compactStr, width, "")) console.log(indentBase + line);
+      for (const line of applyTextWrapping(compactStr, width, "")) write(indentBase + line);
       return;
     }
 
     const lines = formatWithTree(value, fctx, "");
-    for (const line of lines) console.log(indentBase + line);
+    for (const line of lines) write(indentBase + line);
   };
 
   return {
     value: printValue,
     text: (s: string) => {
       const width = ctx.getWidth();
-      for (const line of applyTextWrapping(s, width, "")) console.log(indentBase + line);
+      for (const line of applyTextWrapping(s, width, "")) write(indentBase + line);
     },
     close: () => {
       /* no-op */

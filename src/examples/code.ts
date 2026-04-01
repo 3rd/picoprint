@@ -115,7 +115,7 @@ printExample("Colors", [
   {
     title: "background",
     handler: () =>
-      p.code(tsCode, { language: "typescript", window: true, title: "bg red", background: p.bgRed }),
+      p.code(tsCode, { language: "typescript", window: true, title: "bg red", background: p.color.bgRed }),
   },
   {
     title: "border color",
@@ -124,7 +124,7 @@ printExample("Colors", [
         language: "typescript",
         window: "rounded",
         title: "border green",
-        borderColor: p.green,
+        borderColor: p.color.green,
       }),
   },
   {
@@ -134,8 +134,8 @@ printExample("Colors", [
         language: "typescript",
         window: "double",
         title: "title yellow",
-        titleColor: p.yellow,
-        borderColor: p.gray,
+        titleColor: p.color.yellow,
+        borderColor: p.color.gray,
       }),
   },
 ]);

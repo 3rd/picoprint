@@ -1,24 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { colors } from "../colors";
-import { _resetBatCache, _setBatAvailable, code } from "./code";
+import { _resetBatCache, _setBatAvailable } from "./_test-helpers";
+import { code } from "./code";
 
 describe("code", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
+    _resetBatCache();
   });
 
   describe("fallback behavior", () => {
@@ -29,7 +26,7 @@ describe("code", () => {
     it("should display code with markdown-style fences", () => {
       code("const x = 42;", "javascript");
 
-      expect(logSpy).toHaveBeenCalledTimes(3);
+      expect(logOutput).toHaveLength(3);
       expect(logOutput[0]).toContain("```javascript");
       expect(logOutput[1]).toBe("const x = 42;");
       expect(logOutput[2]).toContain("```");
@@ -38,7 +35,7 @@ describe("code", () => {
     it("should handle empty code", () => {
       code("");
 
-      expect(logSpy).toHaveBeenCalledTimes(3);
+      expect(logOutput).toHaveLength(3);
       expect(logOutput[0]).toContain("```");
       expect(logOutput[1]).toBe("");
       expect(logOutput[2]).toContain("```");
@@ -47,7 +44,7 @@ describe("code", () => {
     it("should handle code without language specification", () => {
       code("function test() { return 42; }");
 
-      expect(logSpy).toHaveBeenCalledTimes(3);
+      expect(logOutput).toHaveLength(3);
       expect(logOutput[0]).toContain("```");
       expect(logOutput[1]).toBe("function test() { return 42; }");
       expect(logOutput[2]).toContain("```");
@@ -60,7 +57,7 @@ describe("code", () => {
 
       code(codeString, "javascript");
 
-      expect(logSpy).toHaveBeenCalledTimes(3);
+      expect(logOutput).toHaveLength(3);
       expect(logOutput[0]).toContain("```javascript");
       expect(logOutput[1]).toBe(codeString);
       expect(logOutput[2]).toContain("```");
@@ -74,13 +71,13 @@ describe("code", () => {
 
     it("should accept language as a string argument", () => {
       code("const x = 1;", "javascript");
-      expect(logSpy).toHaveBeenCalledTimes(3);
+      expect(logOutput).toHaveLength(3);
       expect(logOutput[0]).toContain("```javascript");
     });
 
     it("should accept language via options", () => {
       code("const x: number = 1;", { language: "typescript" });
-      expect(logSpy).toHaveBeenCalledTimes(3);
+      expect(logOutput).toHaveLength(3);
       expect(logOutput[0]).toContain("```typescript");
     });
   });
@@ -93,7 +90,7 @@ describe("code", () => {
     it("should render code in a single-line window", () => {
       code("const x = 42;", { window: true });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("┌");
       expect(output).toContain("┐");
@@ -267,7 +264,7 @@ line3`;
     it("should accept background color option", () => {
       code("test", { window: true, background: colors.bgBlue });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.length).toBeGreaterThan(0);
     });
 
@@ -366,7 +363,7 @@ line3`;
     it("should handle edge case of very narrow width", () => {
       code("x", { window: true, width: 10 });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("x");
     });

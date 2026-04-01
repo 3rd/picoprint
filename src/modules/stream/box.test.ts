@@ -1,23 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { box } from "./box";
 
 describe("stream.box", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   it("opens, writes, and closes with borders once", () => {
@@ -26,7 +21,7 @@ describe("stream.box", () => {
     s.write("world");
     s.close();
 
-    expect(logSpy.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(logOutput.length).toBeGreaterThanOrEqual(3);
     const clean = logOutput.map(stripAnsi);
     expect(clean[0]).toMatch(/[+┌].*[+┐]/); // top border
     expect(clean[clean.length - 1]).toMatch(/[+└].*[+┘]/); // bottom border
@@ -37,6 +32,6 @@ describe("stream.box", () => {
     s.write("line");
     s.close();
     // top + pad + content + pad + bottom
-    expect(logSpy).toHaveBeenCalledTimes(5);
+    expect(logOutput).toHaveLength(5);
   });
 });

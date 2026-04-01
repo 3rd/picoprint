@@ -1,22 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { compareInTable, table } from "./table";
 
 describe("table", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   describe("basic table rendering", () => {
@@ -28,7 +23,7 @@ describe("table", () => {
 
       table(data);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("name");
       expect(output).toContain("age");
@@ -46,12 +41,30 @@ describe("table", () => {
 
       table(data);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("value");
       expect(output).toContain("apple");
       expect(output).toContain("banana");
       expect(output).toContain("cherry");
+    });
+
+    it("should render a Map as a key-value table", () => {
+      const data = new Map<string, unknown>([
+        ["name", "Alice"],
+        ["age", 30],
+      ]);
+
+      table(data);
+
+      expect(logOutput.length).toBeGreaterThan(0);
+      const output = logOutput.join("\n");
+      expect(output).toContain("key");
+      expect(output).toContain("value");
+      expect(output).toContain("name");
+      expect(output).toContain("Alice");
+      expect(output).toContain("age");
+      expect(output).toContain("30");
     });
 
     it("should render an object as a key-value table", () => {
@@ -63,7 +76,7 @@ describe("table", () => {
 
       table(data);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("key");
       expect(output).toContain("value");
@@ -80,10 +93,9 @@ describe("table", () => {
       expect(output).toContain("─");
     });
 
-    it("should handle invalid data", () => {
+    it("should reject invalid data at the type level", () => {
+      // @ts-expect-error -- string is not a valid TableData
       table("invalid");
-
-      expect(logOutput.join("\n")).toContain("Error: Invalid data for table");
     });
   });
 
@@ -126,7 +138,7 @@ describe("table", () => {
         },
       });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("L");
       expect(output).toContain("C");
@@ -147,7 +159,7 @@ describe("table", () => {
 
       table(data, { compact: true });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
     });
   });
 
@@ -157,7 +169,7 @@ describe("table", () => {
 
       table(data);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.join("\n")).toContain("test");
     });
   });

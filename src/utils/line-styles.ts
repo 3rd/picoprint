@@ -1,4 +1,4 @@
-export interface LineStyleChars {
+interface LineStyleChars {
   horizontal: string;
   vertical: string;
   topLeft: string;
@@ -175,23 +175,23 @@ export const isValidStyleName = (name: string): name is LineStyleName => {
   return name in LINE_STYLES;
 };
 
-export const getLineChar = (styleName: LineStyleName, charType: keyof LineStyleChars): string => {
+export const getLineChar = (styleName: LineStyleName, charType: keyof LineStyleChars) => {
   const style = getLineStyle(styleName);
   return style[charType] || "";
 };
 
-export const drawHorizontalLine = (width: number, styleName: LineStyleName = "single"): string => {
+export const drawHorizontalLine = (width: number, styleName: LineStyleName = "single") => {
   const style = getLineStyle(styleName);
   return style.horizontal.repeat(Math.max(0, width));
 };
 
-export const drawVerticalLine = (height: number, styleName: LineStyleName = "single"): string[] => {
+export const drawVerticalLine = (height: number, styleName: LineStyleName = "single") => {
   const style = getLineStyle(styleName);
   const h = Math.max(0, height);
   return Array.from({ length: h }, () => style.vertical);
 };
 
-export const drawBox = (width: number, height: number, styleName: LineStyleName = "single"): string[] => {
+export const drawBox = (width: number, height: number, styleName: LineStyleName = "single") => {
   const style = getLineStyle(styleName);
   const lines: string[] = [];
 
@@ -214,7 +214,7 @@ export const drawBox = (width: number, height: number, styleName: LineStyleName 
   return lines;
 };
 
-export interface TableBorderOptions {
+interface TableBorderOptions {
   styleName?: LineStyleName;
   showVertical?: boolean;
   showHorizontal?: boolean;
@@ -239,5 +239,3 @@ export const getTableBorderChars = (options: TableBorderOptions = {}) => {
     cross: style.cross,
   };
 };
-
-export { LINE_STYLES };

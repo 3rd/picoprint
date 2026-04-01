@@ -1,8 +1,12 @@
-import { colors, keyColor, typeColor } from "@/modules/colors";
+// uses @/utils/colors (not @/modules/colors) to avoid circular: modules/colors -> log-format -> modules/colors
+import { colors, getTypeColor } from "@/utils/colors";
 import { getType, isArray, isObject } from "@/utils/value-helpers";
+
+const keyColor = colors.white;
+const typeColor = getTypeColor;
 const VALID_IDENTIFIER_REGEX = /^[$A-Z_a-z][\w$]*$/;
 
-const safeStringify = (value: unknown): string => {
+const safeStringify = (value: unknown) => {
   const seen = new WeakSet<object>();
   try {
     return JSON.stringify(
@@ -32,7 +36,7 @@ const safeStringify = (value: unknown): string => {
   }
 };
 
-export const toInlineLogString = (value: unknown): string => {
+export const toInlineLogString = (value: unknown) => {
   const type = getType(value);
   switch (type) {
     case "string":
@@ -66,6 +70,7 @@ export const toInlineLogString = (value: unknown): string => {
   }
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity -- heavy type-dispatch renderer
 const formatColored = (value: unknown, seen: WeakSet<object>, indent = 0, inline = false): string[] => {
   const sp = " ".repeat(indent);
   const t = getType(value);
@@ -148,10 +153,6 @@ const formatColored = (value: unknown, seen: WeakSet<object>, indent = 0, inline
   return [sp + c(String(value))];
 };
 
-export const toColoredLogString = (value: unknown): string => {
-  return formatColored(value, new WeakSet<object>(), 0, false).join("\n");
-};
-
-export const toColoredInlineString = (value: unknown): string => {
+export const toColoredInlineString = (value: unknown) => {
   return formatColored(value, new WeakSet<object>(), 0, true).join("\n");
 };

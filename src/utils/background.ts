@@ -2,7 +2,7 @@
 import type { ColorFunction } from "./colors";
 
 // make background persistent across SGR resets in the string
-export const makePersistentBg = (bgFn: (s: string) => string) => {
+const makePersistentBg = (bgFn: (s: string) => string) => {
   const sample = bgFn(" ");
   const match = /\[48;[^m]*m/.exec(sample);
   const open = match?.[0] ?? "";
@@ -29,7 +29,7 @@ export const makePersistentBg = (bgFn: (s: string) => string) => {
   };
 };
 
-export const getBackgroundOrIdentity = (fn?: ColorFunction): ((s: string) => string) => {
+export const getBackgroundOrIdentity = (fn?: ColorFunction) => {
   if (!fn) return (s: string) => s;
   return makePersistentBg(fn);
 };

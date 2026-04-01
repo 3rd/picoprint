@@ -1,14 +1,12 @@
+import { drawHorizontalLine } from "@/utils/line-styles";
+import { renderAndReturn, write } from "@/utils/writer";
 import type { CalendarEvent, CalendarOptions } from "./types";
-import { colors } from "../../utils/colors";
+import { colors } from "../colors";
 import { getCurrentContext } from "../context";
 
 const MILLISECONDS_PER_DAY = 86_400_000;
 const DAYS_PER_WEEK = 7;
-const getSeparator = () => {
-  const ctx = getCurrentContext();
-  const width = Math.max(1, ctx.getWidth());
-  return "─".repeat(width);
-};
+const getSeparator = () => drawHorizontalLine(Math.max(1, getCurrentContext().getWidth()));
 const SUNDAY = 0;
 const SATURDAY = 6;
 
@@ -84,6 +82,43 @@ const formatDate = (date: Date, format = "YYYY-MM-DD") => {
     .replace("MMMM", monthNames[date.getMonth()] || "");
 };
 
+const PRIORITY_ICONS: Partial<Record<string, string>> = { high: "🔥", medium: "⚡" };
+
+const renderCalendarFooter = (config: {
+  events?: CalendarEvent[];
+  year: number;
+  month: number;
+  highlightToday: boolean;
+  highlightWeekends: boolean;
+  today: Date;
+}) => {
+  const { events, year, month, highlightToday, highlightWeekends, today } = config;
+  const footerLines: string[] = [];
+
+  footerLines.push(colors.gray(getSeparator()));
+
+  if (events && events.length > 0) {
+    footerLines.push(colors.cyan(colors.bold("Events:")));
+    for (const event of events) {
+      if (event.date.getFullYear() !== year || event.date.getMonth() !== month) continue;
+      const eventColor = event.color ?? colors.green;
+      const priorityIcon = (event.priority && PRIORITY_ICONS[event.priority]) || "📌";
+      footerLines.push(
+        `  ${eventColor("●")} ${formatDate(event.date, "DD")} - ${priorityIcon} ${event.label}`,
+      );
+    }
+  }
+
+  if (highlightToday) {
+    footerLines.push(`${colors.yellow("●")} Today: ${formatDate(today)}`);
+  }
+  if (highlightWeekends) {
+    footerLines.push(`${colors.blue("●")} Weekends`);
+  }
+
+  return footerLines;
+};
+
 export const calendar = (date: Date = new Date(), options: CalendarOptions = {}) => {
   const {
     firstDayOfWeek = 1,
@@ -92,6 +127,8 @@ export const calendar = (date: Date = new Date(), options: CalendarOptions = {})
     highlightWeekends = true,
     showHeader = false,
     showFooter = false,
+    events,
+    renderContext,
   } = options;
 
   const year = date.getFullYear();
@@ -102,10 +139,26 @@ export const calendar = (date: Date = new Date(), options: CalendarOptions = {})
   const firstDay = getFirstDayOfMonth(year, month);
   const adjustedFirstDay = (firstDay - firstDayOfWeek + DAYS_PER_WEEK) % DAYS_PER_WEEK;
 
+  // build event lookup when events are provided
+  let eventsByDate: Map<string, CalendarEvent[]> | undefined;
+  if (events && events.length > 0) {
+    eventsByDate = new Map();
+    for (const event of events) {
+      if (event.date.getFullYear() !== year || event.date.getMonth() !== month) continue;
+      const dateKey = event.date.getDate().toString();
+      const dateEvents = eventsByDate.get(dateKey) || [];
+      dateEvents.push(event);
+      eventsByDate.set(dateKey, dateEvents);
+    }
+  }
+
   const lines: string[] = [];
+  const hasEvents = events && events.length > 0;
 
   if (showHeader) {
-    lines.push(colors.cyan(colors.bold(`📅 ${monthNames[month]} ${year}`)));
+    const headerTitle =
+      hasEvents ? `📅 ${monthNames[month]} ${year} - Events` : `📅 ${monthNames[month]} ${year}`;
+    lines.push(colors.cyan(colors.bold(headerTitle)));
     lines.push(colors.gray(getSeparator()));
   }
 
@@ -138,112 +191,11 @@ export const calendar = (date: Date = new Date(), options: CalendarOptions = {})
 
       const cellDateObj = new Date(year, month, cellDate);
       const isToday = highlightToday && isSameDay(cellDateObj, today);
-      const isWeekendDay = highlightWeekends && isWeekend(cellDateObj);
+      const dateEvents = eventsByDate?.get(cellDate.toString());
 
       let cellText = cellDate.toString().padStart(2);
 
-      if (isToday) {
-        cellText = colors.yellow(colors.bold(cellText));
-      } else if (isWeekendDay) {
-        cellText = colors.blue(cellText);
-      } else {
-        cellText = colors.white(cellText);
-      }
-
-      row += ` ${cellText}`;
-    }
-
-    lines.push(row);
-  }
-
-  if (showFooter) {
-    lines.push(colors.gray(getSeparator()));
-
-    if (highlightToday) {
-      lines.push(`${colors.yellow("●")} Today: ${formatDate(today)}`);
-    }
-    if (highlightWeekends) {
-      lines.push(`${colors.blue("●")} Weekends`);
-    }
-  }
-
-  const output = lines.join("\n");
-  const ctx = getCurrentContext();
-  const indent = " ".repeat(ctx.offset);
-  for (const line of lines) console.log(indent + line);
-  return output;
-};
-
-export const calendarWithEvents = (date: Date, events: CalendarEvent[], options: CalendarOptions = {}) => {
-  const {
-    firstDayOfWeek = 1,
-    showWeekNumbers = false,
-    highlightToday = true,
-    highlightWeekends = true,
-    showHeader = false,
-    showFooter = false,
-  } = options;
-
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const today = new Date();
-
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfMonth(year, month);
-  const adjustedFirstDay = (firstDay - firstDayOfWeek + DAYS_PER_WEEK) % DAYS_PER_WEEK;
-
-  const eventsByDate = new Map<string, CalendarEvent[]>();
-  for (const event of events) {
-    if (event.date.getFullYear() !== year || event.date.getMonth() !== month) {
-      continue;
-    }
-    const dateKey = event.date.getDate().toString();
-    const dateEvents = eventsByDate.get(dateKey) || [];
-    dateEvents.push(event);
-    eventsByDate.set(dateKey, dateEvents);
-  }
-
-  const lines: string[] = [];
-
-  if (showHeader) {
-    lines.push(colors.cyan(colors.bold(`📅 ${monthNames[month]} ${year} - Events`)));
-    lines.push(colors.gray(getSeparator()));
-  }
-
-  let headerRow = showWeekNumbers ? "   " : "";
-  for (let i = 0; i < DAYS_PER_WEEK; i++) {
-    const dayIndex = (firstDayOfWeek + i) % DAYS_PER_WEEK;
-    const dayName = dayNamesMin[dayIndex] || "";
-    headerRow += ` ${colors.cyan(dayName)}`;
-  }
-  lines.push(headerRow);
-
-  const weeks = Math.ceil((daysInMonth + adjustedFirstDay) / DAYS_PER_WEEK);
-
-  for (let week = 0; week < weeks; week++) {
-    let row = "";
-
-    if (showWeekNumbers) {
-      const weekDate = new Date(year, month, Math.max(1, 1 - adjustedFirstDay + week * DAYS_PER_WEEK));
-      const weekNum = getWeekNumber(weekDate);
-      row += colors.dim(`${weekNum.toString().padStart(2)} `);
-    }
-
-    for (let day = 0; day < DAYS_PER_WEEK; day++) {
-      const cellDate = 1 - adjustedFirstDay + week * DAYS_PER_WEEK + day;
-
-      if (cellDate < 1 || cellDate > daysInMonth) {
-        row += "   ";
-        continue;
-      }
-
-      const cellDateObj = new Date(year, month, cellDate);
-      const isToday = highlightToday && isSameDay(cellDateObj, today);
-      const dateEvents = eventsByDate.get(cellDate.toString()) || [];
-
-      let cellText = cellDate.toString().padStart(2);
-
-      if (dateEvents.length > 0) {
+      if (dateEvents && dateEvents.length > 0) {
         const event = dateEvents[0];
         const eventColor = event?.color ?? colors.green;
         cellText = eventColor(colors.bold(cellText));
@@ -261,35 +213,13 @@ export const calendarWithEvents = (date: Date, events: CalendarEvent[], options:
     lines.push(row);
   }
 
-  if (!showFooter) {
-    const output = lines.join("\n");
-    const ctx = getCurrentContext();
-    const indent = " ".repeat(ctx.offset);
-    for (const line of lines) console.log(indent + line);
-    return output;
+  if (showFooter) {
+    lines.push(...renderCalendarFooter({ events, year, month, highlightToday, highlightWeekends, today }));
   }
 
-  lines.push(colors.gray(getSeparator()));
-
-  if (events.length > 0) {
-    lines.push(colors.cyan(colors.bold("Events:")));
-    for (const event of events) {
-      if (event.date.getFullYear() !== year || event.date.getMonth() !== month) {
-        continue;
-      }
-      const eventColor = event.color ?? colors.green;
-      const priorityIcon = (() => {
-        if (event.priority === "high") return "🔥";
-        if (event.priority === "medium") return "⚡";
-        return "📌";
-      })();
-      lines.push(`  ${eventColor("●")} ${formatDate(event.date, "DD")} - ${priorityIcon} ${event.label}`);
-    }
-  }
-
-  const output = lines.join("\n");
-  const ctx = getCurrentContext();
+  const ctx = renderContext ?? getCurrentContext();
   const indent = " ".repeat(ctx.offset);
-  for (const line of lines) console.log(indent + line);
-  return output;
+  return renderAndReturn(() => {
+    for (const line of lines) write(indent + line);
+  });
 };

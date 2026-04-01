@@ -1,3 +1,3 @@
-export { calendar, calendarWithEvents } from "./calendar";
+export { calendar } from "./calendar";
 
 export type { CalendarEvent, CalendarOptions } from "./types";

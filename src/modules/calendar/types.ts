@@ -1,4 +1,5 @@
-import type { ForegroundColorFunction } from "../../utils/colors";
+import type { ForegroundColorFunction } from "@/utils/colors";
+import type { RenderContext } from "../context";
 
 export interface CalendarOptions {
   firstDayOfWeek?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -7,6 +8,8 @@ export interface CalendarOptions {
   highlightWeekends?: boolean;
   showHeader?: boolean;
   showFooter?: boolean;
+  events?: CalendarEvent[];
+  renderContext?: RenderContext;
 }
 
 export interface CalendarEvent {

@@ -41,9 +41,9 @@ printExample("Array Diff", [
 
 // Words
 printExample("Word Diff", [
-  { title: "basic", handler: () => p.diffWords(codeV1, codeV2) },
-  { title: "ignore case", handler: () => p.diffWords(sentenceA, sentenceB, { ignoreCase: true }) },
-  { title: "ignore whitespace", handler: () => p.diffWords(wsA, wsB, { ignoreWhitespace: true }) },
+  { title: "basic", handler: () => p.diff.words(codeV1, codeV2) },
+  { title: "ignore case", handler: () => p.diff.words(sentenceA, sentenceB, { ignoreCase: true }) },
+  { title: "ignore whitespace", handler: () => p.diff.words(wsA, wsB, { ignoreWhitespace: true }) },
 ]);
 
 // Side-by-side
@@ -60,9 +60,9 @@ const configB = {
   debug: false,
 };
 printExample("Compare (Side by Side)", [
-  { title: "objects", handler: () => p.compare(configA, configB) },
-  { title: "arrays", handler: () => p.compare(listA, listB) },
-  { title: "custom labels", handler: () => p.compare(configA, configB, { labels: ["local", "prod"] }) },
+  { title: "objects", handler: () => p.diff.compare(configA, configB) },
+  { title: "arrays", handler: () => p.diff.compare(listA, listB) },
+  { title: "custom labels", handler: () => p.diff.compare(configA, configB, { labels: ["local", "prod"] }) },
 ]);
 
 // Deep diff + formatted rendering
@@ -85,12 +85,12 @@ printExample("Deep Diff", [
   {
     title: "nodes + formatted",
     handler: () => {
-      const nodes = p.deepDiff(stateA, stateB);
-      console.log(p.cyan("changes:"));
+      const nodes = p.diff.deep(stateA, stateB);
+      p.log(p.color.cyan("changes:"));
       for (const d of nodes) {
-        console.log(`  ${p.yellow(d.type)} ${d.path.join(".") || "root"}`);
+        p.log(`  ${p.color.yellow(d.type)} ${d.path.join(".") || "root"}`);
       }
-      console.log();
+      p.log("");
       p.diff(stateA, stateB);
     },
   },

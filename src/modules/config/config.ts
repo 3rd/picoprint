@@ -1,4 +1,11 @@
+import type { LineStyleName } from "@/utils/line-styles";
+
 export interface PicocprintConfig {
+  defaults?: {
+    style?: LineStyleName;
+    compact?: boolean;
+    maxDepth?: number;
+  };
   code?: {
     useBat?: boolean;
     batTheme?: string;
@@ -7,6 +14,7 @@ export interface PicocprintConfig {
 }
 
 const defaultConfig: PicocprintConfig = {
+  defaults: {},
   code: {
     useBat: false, // opt-in
   },
@@ -14,18 +22,12 @@ const defaultConfig: PicocprintConfig = {
 
 let globalConfig: PicocprintConfig = {};
 
-export const getConfig = (): PicocprintConfig => {
-  return {
-    ...defaultConfig,
-    ...globalConfig,
-    code: {
-      ...defaultConfig.code,
-      ...globalConfig.code,
-    },
-  };
-};
+export const getConfig = (): PicocprintConfig => ({
+  defaults: { ...defaultConfig.defaults, ...globalConfig.defaults },
+  code: { ...defaultConfig.code, ...globalConfig.code },
+});
 
-export const resetConfig = (): void => {
+export const resetConfig = () => {
   globalConfig = {};
 };
 
@@ -34,17 +36,15 @@ export const getConfigValue = <K extends keyof PicocprintConfig>(key: K): Picocp
   return config[key];
 };
 
-export const configure = (options?: Partial<PicocprintConfig>): PicocprintConfig => {
-  if (!options) {
-    return getConfig();
+export const configure = (options: Partial<PicocprintConfig>) => {
+  if (!options || Object.keys(options).length === 0) {
+    throw new Error("configure() requires options. Use getConfig() to read config.");
   }
 
+  if (options.defaults) {
+    globalConfig.defaults = { ...globalConfig.defaults, ...options.defaults };
+  }
   if (options.code) {
-    globalConfig.code = {
-      ...globalConfig.code,
-      ...options.code,
-    };
+    globalConfig.code = { ...globalConfig.code, ...options.code };
   }
-
-  return getConfig();
 };

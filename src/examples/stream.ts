@@ -5,7 +5,7 @@ printExample("Streaming Box", [
   {
     title: "Basic streaming box",
     handler: () => {
-      const s = p.stream.box({ title: "streaming", width: 40, style: "rounded", color: p.gray });
+      const s = p.stream.box({ title: "streaming", width: 40, style: "rounded", borderColor: p.color.gray });
       s.writeln("hello world");
       s.write("this is a long line that will wrap across the inner width");
       s.close();
@@ -14,7 +14,7 @@ printExample("Streaming Box", [
   {
     title: "Box with padding + bg",
     handler: () => {
-      const s = p.stream.box({ width: 42, padding: 1, background: p.bgGray, title: "with bg" });
+      const s = p.stream.box({ width: 42, padding: 1, background: p.color.bgGray, title: "with bg" });
       s.writeln("a");
       s.writeln("b");
       s.close();
@@ -38,7 +38,7 @@ printExample("Streaming Pretty Print", [
   {
     title: "Values incrementally",
     handler: () => {
-      const s = p.stream.pp({ compact: true });
+      const s = p.stream.prettyPrint({ compact: true });
       s.value({ a: 1, b: true, s: "str" });
       s.value({ users: ["a", "b", "c"], count: 3 });
       s.text("literal text is wrapped");

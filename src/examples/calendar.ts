@@ -29,56 +29,55 @@ printExample("Calendar with Events", [
   {
     title: "Events",
     handler: () =>
-      p.calendarWithEvents(new Date(), [
-        {
-          date: new Date(new Date().getFullYear(), new Date().getMonth(), 15),
-          label: "Team Meeting",
-          color: p.green,
-          priority: "high",
-        },
-        {
-          date: new Date(new Date().getFullYear(), new Date().getMonth(), 20),
-          label: "Project Deadline",
-          color: p.red,
-          priority: "high",
-        },
-        {
-          date: new Date(new Date().getFullYear(), new Date().getMonth(), 25),
-          label: "Code Review",
-          color: p.blue,
-          priority: "medium",
-        },
-      ]),
-  },
-  {
-    title: "Events with header/footer",
-    handler: () =>
-      p.calendarWithEvents(
-        new Date(),
-        [
+      p.calendar(new Date(), {
+        events: [
           {
             date: new Date(new Date().getFullYear(), new Date().getMonth(), 15),
             label: "Team Meeting",
-            color: p.green,
+            color: p.color.green,
             priority: "high",
           },
           {
             date: new Date(new Date().getFullYear(), new Date().getMonth(), 20),
             label: "Project Deadline",
-            color: p.red,
+            color: p.color.red,
             priority: "high",
           },
           {
             date: new Date(new Date().getFullYear(), new Date().getMonth(), 25),
             label: "Code Review",
-            color: p.blue,
+            color: p.color.blue,
             priority: "medium",
           },
         ],
-        {
-          showHeader: true,
-          showFooter: true,
-        },
-      ),
+      }),
+  },
+  {
+    title: "Events with header/footer",
+    handler: () =>
+      p.calendar(new Date(), {
+        showHeader: true,
+        showFooter: true,
+        events: [
+          {
+            date: new Date(new Date().getFullYear(), new Date().getMonth(), 15),
+            label: "Team Meeting",
+            color: p.color.green,
+            priority: "high",
+          },
+          {
+            date: new Date(new Date().getFullYear(), new Date().getMonth(), 20),
+            label: "Project Deadline",
+            color: p.color.red,
+            priority: "high",
+          },
+          {
+            date: new Date(new Date().getFullYear(), new Date().getMonth(), 25),
+            label: "Code Review",
+            color: p.color.blue,
+            priority: "medium",
+          },
+        ],
+      }),
   },
 ]);

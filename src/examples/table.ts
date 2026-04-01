@@ -247,10 +247,10 @@ printExample("Different Data Types", [
   {
     title: "Empty & edge cases",
     handler: () => {
-      console.log("Empty array:");
+      p.log("Empty array:");
       p.table([]);
 
-      console.log("\nEmpty object:");
+      p.log("\nEmpty object:");
       p.table({});
     },
   },

@@ -1,22 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { callStack, error, stack, trace } from "./trace";
 
 describe("trace", () => {
-  let originalLog = console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   describe("trace", () => {
@@ -24,7 +19,7 @@ describe("trace", () => {
       const err = new Error("Test error");
       trace(err);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
 
       // plain header with callsite stack
@@ -83,7 +78,7 @@ describe("trace", () => {
       const err = new Error("Stack test");
       stack(err);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("📍");
       expect(output).toContain("Stack test");
@@ -105,7 +100,7 @@ describe("trace", () => {
     it("should generate current stack when no error provided", () => {
       stack();
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("Stack Trace");
       expect(output).toContain("📍");
@@ -166,7 +161,7 @@ describe("trace", () => {
         highlight: /important\.js/,
       });
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("functionA");
       expect(output).toContain("functionB");
@@ -179,7 +174,7 @@ describe("trace", () => {
       const err = new Error("Something failed");
       error(err);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("💥 Error:");
       expect(output).toContain("Something failed");
@@ -240,7 +235,7 @@ describe("trace", () => {
     it("should display current call stack", () => {
       callStack();
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("📞 Call Stack");
       expect(output).toContain("─");
@@ -274,7 +269,7 @@ describe("trace", () => {
 
       trace(stackWithNative);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
     });
 
     it("should detect eval frames", () => {
@@ -284,7 +279,7 @@ describe("trace", () => {
 
       trace(stackWithEval);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
     });
   });
 
@@ -293,7 +288,7 @@ describe("trace", () => {
       const err = new Error("error");
       trace(err);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
     });
 
     it("should handle error without stack", () => {
@@ -308,7 +303,7 @@ describe("trace", () => {
       const longMessage = `Error: ${"x".repeat(200)}`;
       trace(longMessage);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
     });
 
     it("should handle zero maxFrames", () => {

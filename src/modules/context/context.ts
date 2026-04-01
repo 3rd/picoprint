@@ -1,4 +1,5 @@
-import { getTerminalWidth } from "../../utils/terminal";
+import { renderALS } from "@/utils/render-als";
+import { getTerminalWidth } from "@/utils/terminal";
 
 export interface RenderContext {
   readonly offset: number;
@@ -35,26 +36,30 @@ export const popContext = () => {
 };
 
 export const getCurrentContext = (): RenderContext => {
-  return contextStack.length > 0 ? contextStack[contextStack.length - 1]! : defaultContext;
+  const store = renderALS.getStore();
+  if (store) return store.renderContext;
+  if (contextStack.length > 0) return contextStack[contextStack.length - 1]!;
+  if (globalIndentStack.length > 0) return globalIndentStack[globalIndentStack.length - 1]!;
+  return defaultContext;
 };
 
-export const getEffectiveWidth = (): number => {
+export const getEffectiveWidth = () => {
   const current = getCurrentContext();
   return current.getWidth();
 };
 
-export const getEffectiveOffset = (): number => {
+export const getEffectiveOffset = () => {
   const current = getCurrentContext();
   return current.offset;
 };
 
-const toNonNegativeInt = (n: unknown): number => {
+const toNonNegativeInt = (n: unknown) => {
   if (typeof n !== "number" || !Number.isFinite(n)) return 0;
   const i = Math.floor(n);
   return i > 0 ? i : 0;
 };
 
-export const increaseIndent = (amount?: number): void => {
+export const increaseIndent = (amount?: number) => {
   const step = toNonNegativeInt(amount ?? 2);
   if (step === 0) return;
   const base = getCurrentContext();
@@ -63,13 +68,9 @@ export const increaseIndent = (amount?: number): void => {
     value: () => Math.max(1, base.getWidth() - step),
     writable: false,
   });
-  pushContext(next);
   globalIndentStack.push(next);
 };
 
-export const decreaseIndent = (): void => {
-  const last = globalIndentStack.pop();
-  if (!last) return;
-  const idx = (contextStack as RenderContext[]).lastIndexOf(last);
-  if (idx >= 0) contextStack.splice(idx, 1);
+export const decreaseIndent = () => {
+  globalIndentStack.pop();
 };

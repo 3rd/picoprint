@@ -12,13 +12,17 @@ printExample("Basic Box Examples", [
   {
     title: "Double border",
     handler: () => {
-      p.box("This box has a double border style!", { style: "double", color: p.green });
+      p.box("This box has a double border style!", { style: "double", borderColor: p.color.green });
     },
   },
   {
     title: "Rounded with title",
     handler: () => {
-      p.box("Rounded box with a centered title.", { style: "rounded", title: "Important", color: p.cyan });
+      p.box("Rounded box with a centered title.", {
+        style: "rounded",
+        title: "Important",
+        borderColor: p.color.cyan,
+      });
     },
   },
   {
@@ -27,7 +31,7 @@ printExample("Basic Box Examples", [
       p.box("Custom width and extra padding for breathing room.", {
         width: 50,
         padding: 2,
-        color: p.magenta,
+        borderColor: p.color.magenta,
       });
     },
   },
@@ -42,7 +46,7 @@ printExample("Title Alignment", [
         style: "double",
         title: "Left",
         titleAlign: "left",
-        color: p.cyan,
+        borderColor: p.color.cyan,
       }),
   },
   {
@@ -52,7 +56,7 @@ printExample("Title Alignment", [
         style: "single",
         title: "Right",
         titleAlign: "right",
-        color: p.magenta,
+        borderColor: p.color.magenta,
       }),
   },
   {
@@ -61,7 +65,7 @@ printExample("Title Alignment", [
       p.box("Content", {
         title: "This is a very long title that might need to be truncated",
         width: 40,
-        color: p.yellow,
+        borderColor: p.color.yellow,
       }),
   },
 ]);
@@ -71,14 +75,14 @@ printExample("Multi-line Content", [
   {
     title: "Multiline string",
     handler: () =>
-      p.box(`First line\nSecond line\nThird line with ${p.red("colored")} text\nFourth line`, {
+      p.box(`First line\nSecond line\nThird line with ${p.color.red("colored")} text\nFourth line`, {
         style: "thick",
-        color: p.gray,
+        borderColor: p.color.gray,
       }),
   },
   {
     title: "Empty box",
-    handler: () => p.box("", { style: "double", color: p.dim }),
+    handler: () => p.box("", { style: "double", borderColor: p.color.dim }),
   },
 ]);
 
@@ -89,7 +93,7 @@ printExample("Text Wrapping", [
     handler: () => {
       const long =
         "This is a very long line of text that should wrap automatically when it exceeds the maximum width of the box. The wrapping preserves the box structure and padding.";
-      p.box(long, { width: 48, style: "thick", color: p.yellow });
+      p.box(long, { width: 48, style: "thick", borderColor: p.color.yellow });
     },
   },
 ]);
@@ -97,15 +101,11 @@ printExample("Text Wrapping", [
 // Variants
 printExample("Variants", [
   {
-    title: "Frame (no padding)",
-    handler: () => {
-      p.box.frame("This is a frame with no padding", { color: p.red });
-    },
-  },
-  {
     title: "Panel with title",
     handler: () => {
-      p.box.panel("Panel Title", "Panel content with rounded corners and padding.", { color: p.green });
+      p.box.panel("Panel Title", "Panel content with rounded corners and padding.", {
+        borderColor: p.color.green,
+      });
     },
   },
 ]);
@@ -113,15 +113,15 @@ printExample("Variants", [
 // Captured output
 printExample("Captured Output", [
   {
-    title: "Capture console.log inside",
+    title: "Capture p.log() inside",
     handler: () =>
       p.box(
         () => {
-          console.log("Line 1: This output is captured");
-          console.log("Line 2: Multiple lines work!");
-          console.log(p.green("Line 3: Even with colors!"));
+          p.log("Line 1: This output is captured");
+          p.log("Line 2: Multiple lines work!");
+          p.log(p.color.green("Line 3: Even with colors!"));
         },
-        { style: "rounded", title: "Captured Output", color: p.blue },
+        { style: "rounded", title: "Captured Output", borderColor: p.color.blue },
       ),
   },
 ]);
@@ -130,11 +130,20 @@ printExample("Captured Output", [
 printExample("Background Colors", [
   {
     title: "Blue background",
-    handler: () => p.box("Box with blue background", { background: p.bgBlue, padding: 1, color: p.white }),
+    handler: () =>
+      p.box("Box with blue background", {
+        background: p.color.bgBlue,
+        padding: 1,
+        borderColor: p.color.white,
+      }),
   },
   {
     title: "Magenta background",
     handler: () =>
-      p.box("Box with magenta background", { background: p.bgMagenta, padding: 1, color: p.white }),
+      p.box("Box with magenta background", {
+        background: p.color.bgMagenta,
+        padding: 1,
+        borderColor: p.color.white,
+      }),
   },
 ]);

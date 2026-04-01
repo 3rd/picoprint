@@ -2,14 +2,14 @@ export type ColorFunction = (str: number | string) => string;
 export type ForegroundColorFunction = ColorFunction & { readonly __kind: "fg" };
 export type BackgroundColorFunction = ColorFunction & { readonly __kind: "bg" };
 
-export const isColorSupported = (): boolean => {
+export const isColorSupported = () => {
   if (process.env.NO_COLOR) return false;
   if (process.env.FORCE_COLOR) return true;
   if (process.stdout?.isTTY && process.env.TERM !== "dumb") return true;
   return false;
 };
 
-const replaceClose = (string: string, close: string, replace: string, index: number): string => {
+const replaceClose = (string: string, close: string, replace: string, index: number) => {
   let result = "";
   let cursor = 0;
   let currentIndex = index;
@@ -25,7 +25,7 @@ const replaceClose = (string: string, close: string, replace: string, index: num
 };
 
 const formatter = (open: string, close: string, replace: string = open) => {
-  return (input: number | string): string => {
+  return (input: number | string) => {
     const string = `${input}`;
     const index = string.indexOf(close, open.length);
     // eslint-disable-next-line no-bitwise
@@ -142,7 +142,7 @@ export const bgRgb = (r: number, g: number, b: number): BackgroundColorFunction 
     : (String as unknown as ColorFunction)) as BackgroundColorFunction;
 };
 
-export const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+export const hexToRgb = (hex: string) => {
   const result = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex);
   if (!result || !result[1] || !result[2] || !result[3]) {
     return null;
@@ -154,7 +154,7 @@ export const hexToRgb = (hex: string): { r: number; g: number; b: number } | nul
   };
 };
 
-export const rgbToHex = (r: number, g: number, b: number): string => {
+export const rgbToHex = (r: number, g: number, b: number) => {
   // eslint-disable-next-line no-bitwise
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 };
@@ -218,7 +218,7 @@ export const getTypeColor = (type: string): ColorFunction => {
   }
 };
 
-export const rainbow = (text: string): string => {
+export const rainbow = (text: string) => {
   const enabled = isColorSupported();
   const colorFuncs = enabled ? createColors(true) : createColors(false);
   const rainbowColors = [
@@ -244,7 +244,7 @@ const interpolateRgb = (
   start: { r: number; g: number; b: number },
   end: { r: number; g: number; b: number },
   ratio: number,
-): { r: number; g: number; b: number } => {
+) => {
   return {
     r: Math.round(start.r + (end.r - start.r) * ratio),
     g: Math.round(start.g + (end.g - start.g) * ratio),
@@ -256,7 +256,7 @@ export const gradientRgb = (
   text: string,
   startRgb: { r: number; g: number; b: number },
   endRgb: { r: number; g: number; b: number },
-): string => {
+) => {
   const enabled = isColorSupported();
   if (!enabled) return text;
 
@@ -276,7 +276,7 @@ export const gradientRgb = (
     .join("");
 };
 
-export const gradientHex = (text: string, startHex: string, endHex: string): string => {
+export const gradientHex = (text: string, startHex: string, endHex: string) => {
   const startRgb = hexToRgb(startHex);
   const endRgb = hexToRgb(endHex);
 
@@ -290,7 +290,7 @@ export const gradientHex = (text: string, startHex: string, endHex: string): str
   return gradientRgb(text, startRgb, endRgb);
 };
 
-export const gradient = (text: string, startColor: ColorFunction, endColor: ColorFunction): string => {
+export const gradient = (text: string, startColor: ColorFunction, endColor: ColorFunction) => {
   const enabled = isColorSupported();
   if (!enabled) return text;
 
@@ -315,7 +315,7 @@ export const gradient = (text: string, startColor: ColorFunction, endColor: Colo
     whiteBright: { r: 255, g: 255, b: 255 },
   };
 
-  const getColorRgb = (fn: ColorFunction): { r: number; g: number; b: number } | null => {
+  const getColorRgb = (fn: ColorFunction) => {
     const testStr = "test";
     const result = fn(testStr);
 
@@ -368,7 +368,7 @@ export const gradient = (text: string, startColor: ColorFunction, endColor: Colo
   return gradientRgb(text, startRgb, endRgb);
 };
 
-export const createColorPalette = (baseColor: string, count = 5): string[] => {
+export const createColorPalette = (baseColor: string, count = 5) => {
   const palette: string[] = [];
   const rgbVal = hexToRgb(baseColor);
 

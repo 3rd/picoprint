@@ -15,34 +15,36 @@ npm install picoprint
 ## Quick Start
 
 ```typescript
-import p from 'picoprint';
+import p, { c } from 'picoprint';
 
-// Pretty print any value
+// pretty print any value (prints AND returns string)
 p({ name: 'Alice', age: 30, hobbies: ['reading', 'coding'] });
 
-// Use colors
-p.green.log('Success!');
-p.bgRed.white.log('ERROR');
+// colors
+c.green.log('Success!');
+c.bgRed.white.log('ERROR');
 
-// Quick logging (indent-aware)
+// quick logging (indent-aware)
 p.log('server', 'listening on', 3000);
 
-// Control global indentation
-p.indent();
-p.log('within a block'); // printed with 2-space indent
-p.indent(3);
-p.log('deeper');         // printed with 5-space indent
-p.dedent(); // pops one prior indent level
-p.log('back to 2');
-p.dedent();
-p.log('back to 0');
-
-// Draw boxes
-p.box('Hello World', {
-  style: 'rounded',
-  color: p.yellow,
-  padding: 1
+// capture output as string without printing
+const output = p.format(() => {
+  p.table([{ name: 'Alice' }, { name: 'Bob' }]);
+  p.line('section');
+  p.tree(myTree);
 });
+
+// compose with callbacks
+p.box(() => {
+  p.table(data);
+  p.line();
+  p.tree(node);
+}, { style: 'rounded', padding: 1 });
+
+// indentation persists across call sites
+p.indent(2);
+p.log('indented');
+p.dedent();
 ```
 
 ## Features
@@ -55,41 +57,41 @@ p.box('Hello World', {
 - 💻 **Code highlighting** - Syntax highlighting with optional bat integration
 - 📅 **Calendars** - ASCII calendars with event markers
 - 🔄 **Streaming** - Streaming output for progressive rendering
-- 📝 **Logging** - `p.log` and chainable `.log` on colors (e.g., `p.yellow.log()`)
+- 📝 **Logging** - `p.log` and chainable `.log` on colors (e.g., `p.color.yellow.log()`)
 
 ### 🎨 Colors & Styling
 
 ```typescript
 // Basic colors
-p.red('Error'), p.green('Success'), p.yellow('Warning')
-p.bgBlue.white('Highlighted')
+p.color.red('Error'), p.color.green('Success'), p.color.yellow('Warning')
+p.color.bgBlue.white('Highlighted')
 
 // Modifiers
-p.bold('Bold'), p.dim('Dimmed'), p.italic('Italic')
-p.underline('Underlined'), p.strikethrough('Strikethrough')
+p.color.bold('Bold'), p.color.dim('Dimmed'), p.color.italic('Italic')
+p.color.underline('Underlined'), p.color.strikethrough('Strikethrough')
 
 // 256 colors
-p.color256(196)('Red from 256 palette')
-p.bgColor256(226)('Yellow background')
+p.color.color256(196)('Red from 256 palette')
+p.color.bgColor256(226)('Yellow background')
 
 // RGB & Hex
-p.rgb(255, 128, 0)('Orange')
-p.hex('#FF5733')('Coral')
-p.bgRgb(0, 0, 255)('Blue background')
-p.bgHex('#2E86AB')('Ocean background')
+p.color.rgb(255, 128, 0)('Orange')
+p.color.hex('#FF5733')('Coral')
+p.color.bgRgb(0, 0, 255)('Blue background')
+p.color.bgHex('#2E86AB')('Ocean background')
 
 // Gradients
-p.gradient('Smooth gradient text', p.red, p.blue)
-p.gradientRgb('RGB gradient', {r:255,g:0,b:0}, {r:0,g:0,b:255})
-p.gradientHex('Hex gradient', '#FF0000', '#0000FF')
+p.color.gradient('Smooth gradient text', p.color.red, p.color.blue)
+p.color.gradientRgb('RGB gradient', {r:255,g:0,b:0}, {r:0,g:0,b:255})
+p.color.gradientHex('Hex gradient', '#FF0000', '#0000FF')
 
 // Rainbow & color palettes
-p.rainbow('Rainbow text 🌈')
-p.palette('#FF0000', 7) // Generate 7 shades
+p.color.rainbow('Rainbow text 🌈')
+p.color.palette('#FF0000', 7) // Generate 7 shades
 
 // Logging with styles
-p.yellow.log('warn:', 'disk', 95, '%')
-p.bold.yellow.log('ready')
+p.color.yellow.log('warn:', 'disk', 95, '%')
+p.color.bold.yellow.log('ready')
 // plain log
 p.log('status', 200)
 ```
@@ -101,19 +103,19 @@ p.log('status', 200)
 p.box('Content here');
 
 // Styled boxes
-p.box('Double border', { style: 'double', color: p.green });
-p.box('Rounded box', { style: 'rounded', title: 'Info', color: p.cyan });
+p.box('Double border', { style: 'double', borderColor: p.color.green });
+p.box('Rounded box', { style: 'rounded', title: 'Info', borderColor: p.color.cyan });
 
 // Box styles: single, double, rounded, thick, ascii
 
 // Box variants
-p.box.frame('No padding frame', { color: p.red });
+p.box('No padding frame', { borderColor: p.color.red });
 p.box.panel('Title', 'Panel content with rounded corners');
 
 // Capture console output
 p.box(() => {
   console.log('This output is captured');
-  console.log(p.green('With colors!'));
+  console.log(p.color.green('With colors!'));
 }, { title: 'Captured', style: 'rounded' });
 
 // Box returns callback's return value
@@ -125,9 +127,9 @@ const result = p.box(() => {
 
 // Background colors
 p.box('Blue background', {
-  background: p.bgBlue,
+  background: p.color.bgBlue,
   padding: 1,
-  color: p.white
+  borderColor: p.color.white
 });
 ```
 
@@ -152,11 +154,11 @@ p.line.dashed('Dashed');
 p.line.section('Section');
 
 // Gradient line
-p.line.gradient({ start: p.magenta, end: p.yellow });
+p.line.gradient({ start: p.color.magenta, end: p.color.yellow });
 
 // Custom alignment
-p.line({ label: 'Left', align: 'left' });
-p.line({ label: 'Right', align: 'right' });
+p.line({ label: 'Left', labelAlign: 'left' });
+p.line({ label: 'Right', labelAlign: 'right' });
 ```
 
 ### 📊 Tables
@@ -270,9 +272,9 @@ p.code(sourceCode, {
   title: 'Example',
   titleAlign: 'center',
   padding: 1,
-  background: p.bgBlue,
-  borderColor: p.yellow,
-  titleColor: p.cyan
+  background: p.color.bgBlue,
+  borderColor: p.color.yellow,
+  titleColor: p.color.cyan
 });
 
 // Configure bat integration
@@ -301,18 +303,18 @@ p.diff(obj1, obj2, {
 });
 
 // Word diff
-p.diffWords('Hello world', 'Hello beautiful world');
-p.diffWords(text1, text2, {
+p.diff.words('Hello world', 'Hello beautiful world');
+p.diff.words(text1, text2, {
   ignoreCase: true,
   ignoreWhitespace: true
 });
 
 // Side-by-side comparison
-p.compare(leftData, rightData);
-p.compare(data1, data2, { labels: ['Dev', 'Prod'] });
+p.diff.compare(leftData, rightData);
+p.diff.compare(data1, data2, { labels: ['Dev', 'Prod'] });
 
 // Deep diff (returns diff nodes)
-const changes = p.deepDiff(obj1, obj2);
+const changes = p.diff.deep(obj1, obj2);
 ```
 
 ### 📅 Calendar
@@ -333,14 +335,16 @@ p.calendar(date, {
 });
 
 // Calendar with events
-p.calendarWithEvents(new Date(), [
-  {
-    date: new Date(2024, 2, 15),
-    label: 'Meeting',
-    color: p.red,
-    priority: 'high'
-  }
-]);
+p.calendar(new Date(), {
+  events: [
+    {
+      date: new Date(2024, 2, 15),
+      label: 'Meeting',
+      color: p.color.red,
+      priority: 'high'
+    }
+  ]
+});
 ```
 
 ### 🔄 Streaming
@@ -377,36 +381,33 @@ ppStream.close();
 try {
   someFunction();
 } catch (err) {
-  p.error(err);
+  p.trace.error(err);   // rich error: message, type/cause, trace
+  p.trace(err);          // stack trace with framing
 }
 
-// Current stack trace
-p.trace();
+// Current call stack
+p.trace.callStack();
 
-// Call stack
-p.callStack();
-
-// Custom stack display
-p.stack();
+// Compact stack
+p.trace.stack();
 ```
 
 ### ⚙️ Configuration
 
 ```typescript
 p.configure({
-  // Pretty print options
-  maxDepth: 5,
-  maxItems: 100,
-  compact: false,
-  sorted: true,
-  showHidden: false,
-  colors: true,
+  // Global defaults (applied to all modules as fallback)
+  defaults: {
+    style: 'rounded',   // default border/line style
+    compact: true,       // default compact mode for pp/table
+    maxDepth: 5,         // default max depth for pp
+  },
 
   // Code highlighting
   code: {
-    useBat: true,        // Use bat for syntax highlighting
-    batTheme: 'TwoDark', // Bat theme
-    batOptions: []       // Additional bat arguments
+    useBat: true,        // use bat for syntax highlighting
+    batTheme: 'TwoDark', // bat theme
+    batOptions: []       // additional bat arguments
   }
 });
 
@@ -422,9 +423,9 @@ p.resetConfig();
 The default export `p` is both a function and an object:
 
 - `p(value, options?)` - Pretty print any value
-- `p.{color}(text)` - All color functions
+- `p.color.{name}(text)` - All color functions (or `import { color as c }`)
 - `p.log(...args)` - Print any args (indent-aware) and return string
-- `p.{color}.log(...args)` - Chain colors then print args
+- `p.color.{name}.log(...args)` - Chain colors then print args
 - `p.box(content, options?)` - Draw boxes
 - `p.line(options?)` - Draw lines
 - `p.table(data, options?)` - Display tables

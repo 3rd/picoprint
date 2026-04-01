@@ -1,94 +1,75 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { configure, resetConfig } from "@/modules/config";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { prettyPrint as pp } from "./pp";
 
-type ConsoleLogFunction = (...args: unknown[]) => void;
-
 describe("pp", () => {
-  let logSpy: Mock<ConsoleLogFunction>;
-  const originalLog = console.log;
+  let logOutput: string[] = [];
 
   beforeEach(() => {
-    logSpy = mock<ConsoleLogFunction>(() => undefined);
-    console.log = logSpy as typeof console.log;
+    logOutput = [];
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
-    logSpy.mockRestore();
+    _resetWriterStack();
+    resetConfig();
   });
 
   describe("primitive values", () => {
-    it("should format strings with quotes", () => {
+    it("should format strings in blue", () => {
       pp("hello");
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain('"hello"');
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("hello");
     });
 
     it("should format numbers", () => {
       pp(42);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("42");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("42");
     });
 
     it("should format booleans", () => {
       pp(true);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("true");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("true");
     });
 
     it("should format null", () => {
       pp(null);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("null");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("null");
     });
 
     it("should format undefined", () => {
       pp(undefined);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("undefined");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("undefined");
     });
 
     it("should format symbols", () => {
       pp(Symbol("test"));
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("Symbol(test)");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("Symbol(test)");
     });
 
     it("should format bigints with n suffix", () => {
       pp(BigInt(123));
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("123n");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("123n");
     });
 
     it("should format functions with name", () => {
       const namedFunc = function testFunc() {};
       pp(namedFunc);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("[Function: testFunc]");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("[Function: testFunc]");
     });
 
     it("should format anonymous functions", () => {
       pp(() => {});
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("[Function: anonymous]");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("[Function: anonymous]");
     });
   });
 
@@ -96,51 +77,41 @@ describe("pp", () => {
     it("should format dates with ISO string and relative time", () => {
       const date = new Date("2025-01-01T00:00:00Z");
       pp(date);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("2025-01-01T00:00:00.000Z");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("2025-01-01T00:00:00.000Z");
     });
 
     it("should format regular expressions", () => {
       pp(/test/gi);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("/test/gi");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("/test/gi");
     });
 
     it("should format errors with message", () => {
       pp(new Error("Test error"));
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("[Error: Test error]");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("[Error: Test error]");
     });
   });
 
   describe("arrays", () => {
     it("should format simple arrays in compact mode", () => {
       pp([1, 2, 3]);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toMatch(/\[.*1.*,.*2.*,.*3.*]/);
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toMatch(/\[.*1.*,.*2.*,.*3.*]/);
     });
 
     it("should format empty arrays", () => {
       pp([]);
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("[]");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("[]");
     });
 
     it("should format arrays with tree structure for complex items", () => {
       pp([{ a: 1 }, { b: 2 }]);
-      expect(logSpy.mock.calls.length).toBeGreaterThan(1);
+      expect(logOutput.length).toBeGreaterThan(1);
 
-      const lines = logSpy.mock.calls.map((call) => call[0] as string).join("\n");
+      const lines = logOutput.join("\n");
       expect(lines).toContain("[0]");
       expect(lines).toContain("[1]");
       expect(lines).toContain("├─");
@@ -153,38 +124,33 @@ describe("pp", () => {
         [3, 4],
       ]);
 
-      const lines = logSpy.mock.calls.map((call) => call[0] as string);
-      expect(lines.some((line) => line.includes("[0]"))).toBe(true);
-      expect(lines.some((line) => line.includes("[1]"))).toBe(true);
+      expect(logOutput.some((line) => line.includes("[0]"))).toBe(true);
+      expect(logOutput.some((line) => line.includes("[1]"))).toBe(true);
     });
   });
 
   describe("objects", () => {
     it("should format simple objects in compact mode", () => {
       pp({ a: 1, b: 2 });
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("{ ");
-      expect(lines).toContain("a");
-      expect(lines).toContain("b");
-      expect(lines).toContain(" }");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("{ ");
+      expect(logOutput[0]).toContain("a");
+      expect(logOutput[0]).toContain("b");
+      expect(logOutput[0]).toContain(" }");
     });
 
     it("should format empty objects", () => {
       pp({});
-      expect(logSpy).toHaveBeenCalledTimes(1);
-
-      const lines = logSpy.mock.calls?.[0]?.[0] as string;
-      expect(lines).toContain("{");
-      expect(lines).toContain("}");
+      expect(logOutput).toHaveLength(1);
+      expect(logOutput[0]).toContain("{");
+      expect(logOutput[0]).toContain("}");
     });
 
     it("should format objects with tree structure for complex values", () => {
       pp({ nested: { inner: { deep: "value" } } }, { compact: false });
-      expect(logSpy.mock.calls.length).toBeGreaterThan(1);
+      expect(logOutput.length).toBeGreaterThan(1);
 
-      const lines = logSpy.mock.calls.map((call) => call[0] as string).join("\n");
+      const lines = logOutput.join("\n");
       expect(lines).toContain("nested");
       expect(lines).toContain("inner");
       expect(lines).toContain("└─");
@@ -193,7 +159,7 @@ describe("pp", () => {
     it("should handle objects with special keys", () => {
       pp({ "key with spaces": "value", "123": "numeric" });
 
-      const lines = logSpy.mock.calls.map((call) => call[0] as string).join("\n");
+      const lines = logOutput.join("\n");
       expect(lines).toContain('"key with spaces"');
       expect(lines).toContain('"123"');
     });
@@ -206,7 +172,7 @@ describe("pp", () => {
       obj.self = obj;
       pp(obj);
 
-      const lines = logSpy.mock.calls.map((call) => call[0] as string).join("\n");
+      const lines = logOutput.join("\n");
       expect(lines).toContain("[Circular]");
       expect(lines).toContain("name");
     });
@@ -217,57 +183,59 @@ describe("pp", () => {
       arr.push(arr);
       pp(arr);
 
-      const liness = logSpy.mock.calls.map((call) => call[0] as string).join("\n");
-      expect(liness).toContain("[Circular]");
-      expect(liness).toContain("[0]");
-      expect(liness).toContain("[1]");
+      const lines = logOutput.join("\n");
+      expect(lines).toContain("[Circular]");
+      expect(lines).toContain("[0]");
+      expect(lines).toContain("[1]");
     });
   });
 
-  describe("options", () => {
-    it("should respect maxDepth option", () => {
-      const deep = { a: { b: { c: { d: { e: "value" } } } } };
-      pp(deep, { maxDepth: 2 });
+  describe("options via configure", () => {
+    it("should respect maxDepth from config", () => {
+      configure({ defaults: { maxDepth: 2 } });
 
-      const liness = logSpy.mock.calls.map((call) => call[0] as string).join("\n");
-      expect(liness).toContain("...");
-      expect(liness).not.toContain("value");
+      const deep = { a: { b: { c: { d: { e: "value" } } } } };
+      pp(deep);
+
+      const lines = logOutput.join("\n");
+      expect(lines).toContain("...");
+      expect(lines).not.toContain("value");
     });
 
-    it("should respect compact option", () => {
+    it("should respect compact from config", () => {
+      configure({ defaults: { compact: false } });
+
       const data = { items: [1, 2, 3] };
-      pp(data, { compact: false });
+      pp(data);
 
       // in non-compact mode, arrays should be expanded
-      const lines = logSpy.mock.calls.map((call) => call[0] as string);
-      expect(lines.length).toBeGreaterThan(1);
-      expect(lines.some((line) => line.includes("[0]"))).toBe(true);
+      expect(logOutput.length).toBeGreaterThan(1);
+      expect(logOutput.some((line) => line.includes("[0]"))).toBe(true);
     });
   });
 
   describe("tree formatting", () => {
     it("should use proper tree characters", () => {
       pp({ first: 1, middle: 2, last: 3 });
-      const lines = logSpy.mock.calls.map((call) => call[0] as string);
 
-      const hasTreeChars = lines.some(
+      const hasTreeChars = logOutput.some(
         (line) => line.includes("├─") || line.includes("└─") || line.includes("│"),
       );
 
       // for compact display, might not have tree chars
-      if (lines.length > 1) {
+      if (logOutput.length > 1) {
         expect(hasTreeChars).toBe(true);
       }
     });
 
     it("should properly indent nested structures", () => {
-      pp({ parent: { child: { grandchild: "value" } } }, { compact: false });
-      const lines = logSpy.mock.calls.map((call) => call[0] as string);
+      configure({ defaults: { compact: false } });
+      pp({ parent: { child: { grandchild: "value" } } });
 
       // check that indentation increases with depth
-      const parentLine = lines.find((line) => line.includes("parent"));
-      const childLine = lines.find((line) => line.includes("child") && !line.includes("grandchild"));
-      const grandchildLine = lines.find((line) => line.includes("grandchild"));
+      const parentLine = logOutput.find((line) => line.includes("parent"));
+      const childLine = logOutput.find((line) => line.includes("child") && !line.includes("grandchild"));
+      const grandchildLine = logOutput.find((line) => line.includes("grandchild"));
 
       expect(parentLine).toBeDefined();
       expect(childLine).toBeDefined();

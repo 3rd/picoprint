@@ -1,63 +1,36 @@
+import { stripAnsi } from "@/utils/ansi";
+import { formatValueColored } from "@/utils/format-value";
+import { getType, isSimpleValue } from "@/utils/value-helpers";
+import { renderAndReturn, write } from "@/utils/writer";
+import type { RenderContext } from "../context";
 import { colors } from "../colors";
 import { getCurrentContext } from "../context";
 
-export type DiffType = "added" | "deleted" | "modified" | "unchanged";
+export type DiffType = "added" | "deleted" | "modified";
 
-export interface DiffNode {
-  type: DiffType;
-  path: string[];
-  key: string;
-  value1?: unknown;
-  value2?: unknown;
-}
+export type DiffNode =
+  | { type: "added"; path: string[]; key: string; value2: unknown }
+  | { type: "deleted"; path: string[]; key: string; value1: unknown }
+  | { type: "modified"; path: string[]; key: string; value1: unknown; value2: unknown };
 
 export interface DiffOptions {
   showUnchanged?: boolean;
   compact?: boolean;
   maxDepth?: number;
+  renderContext?: RenderContext;
 }
 
 export interface DiffWordsOptions {
   ignoreCase?: boolean;
   ignoreWhitespace?: boolean;
-  context?: number;
 }
 
 export interface CompareOptions {
-  side?: "both" | "left" | "right";
   labels?: [string, string];
+  renderContext?: RenderContext;
 }
 
-const formatValue = (value: unknown): string => {
-  if (value === null) return colors.gray("null");
-  if (value === undefined) return colors.gray("undefined");
-  if (typeof value === "boolean") return colors.magenta(String(value));
-  if (typeof value === "number") return colors.yellow(String(value));
-  if (typeof value === "bigint") return colors.yellow(`${value}n`);
-  if (value instanceof Date) return colors.cyan(value.toISOString());
-  if (typeof value === "string") return colors.green(`"${value}"`);
-  if (Array.isArray(value)) return colors.cyan(`[Array(${value.length})]`);
-  if (typeof value === "object") return colors.cyan("[Object]");
-  return String(value);
-};
-
-const isSimpleValue = (value: unknown): boolean => {
-  return (
-    value === null ||
-    value === undefined ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean" ||
-    value instanceof Date
-  );
-};
-
-const getType = (value: unknown): string => {
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
-  if (Array.isArray(value)) return "array";
-  return typeof value;
-};
+const QUOTE_STRINGS = { quoteStrings: true } as const;
 
 export const deepDiff = (
   obj1: unknown,
@@ -73,20 +46,11 @@ export const deepDiff = (
     return [];
   }
 
-  if (typeof obj1 === "object" && obj1 !== null && seenSet.has(obj1)) {
-    return [];
-  }
-
-  if (typeof obj2 === "object" && obj2 !== null && seenSet.has(obj2)) {
-    return [];
-  }
-
+  // only track obj1 for cycle detection — tracking both causes false
+  // negatives when obj1 and obj2 share a sub-object reference
   if (typeof obj1 === "object" && obj1 !== null) {
+    if (seenSet.has(obj1)) return [];
     seenSet.add(obj1);
-  }
-
-  if (typeof obj2 === "object" && obj2 !== null) {
-    seenSet.add(obj2);
   }
 
   const type1 = getType(obj1);
@@ -209,10 +173,10 @@ const renderDiff = (params: RenderDiffParams): string[] => {
 
   if (isSimpleValue(obj1) && isSimpleValue(obj2)) {
     if (obj1 !== obj2) {
-      lines.push(`${prefix}${colors.red("-")} ${formatValue(obj1)}`);
-      lines.push(`${prefix}${colors.green("+")} ${formatValue(obj2)}`);
+      lines.push(`${prefix}${colors.red("-")} ${formatValueColored(obj1, QUOTE_STRINGS)}`);
+      lines.push(`${prefix}${colors.green("+")} ${formatValueColored(obj2, QUOTE_STRINGS)}`);
     } else if (options.showUnchanged) {
-      lines.push(`${prefix}  ${formatValue(obj1)}`);
+      lines.push(`${prefix}  ${formatValueColored(obj1, QUOTE_STRINGS)}`);
     }
     return lines;
   }
@@ -224,9 +188,9 @@ const renderDiff = (params: RenderDiffParams): string[] => {
 
       if (itemDiff) {
         if (itemDiff.type === "added") {
-          lines.push(`${prefix}${colors.green("+")} [${i}]: ${formatValue(obj2[i])}`);
+          lines.push(`${prefix}${colors.green("+")} [${i}]: ${formatValueColored(obj2[i], QUOTE_STRINGS)}`);
         } else if (itemDiff.type === "deleted") {
-          lines.push(`${prefix}${colors.red("-")} [${i}]: ${formatValue(obj1[i])}`);
+          lines.push(`${prefix}${colors.red("-")} [${i}]: ${formatValueColored(obj1[i], QUOTE_STRINGS)}`);
         } else if (itemDiff.type === "modified") {
           lines.push(`${prefix}${colors.yellow("~")} [${i}]:`);
           if (depth + 1 >= (options.maxDepth ?? 10)) {
@@ -244,7 +208,7 @@ const renderDiff = (params: RenderDiffParams): string[] => {
           }
         }
       } else if (options.showUnchanged && i < obj1.length && i < obj2.length) {
-        lines.push(`${prefix}  [${i}]: ${formatValue(obj1[i])}`);
+        lines.push(`${prefix}  [${i}]: ${formatValueColored(obj1[i], QUOTE_STRINGS)}`);
       }
     }
   } else if (typeof obj1 === "object" && obj1 !== null && typeof obj2 === "object" && obj2 !== null) {
@@ -258,11 +222,11 @@ const renderDiff = (params: RenderDiffParams): string[] => {
       if (keyDiff) {
         if (keyDiff.type === "added") {
           lines.push(
-            `${prefix}${colors.green("+")} ${colors.cyan(key)}: ${formatValue((obj2 as Record<string, unknown>)[key])}`,
+            `${prefix}${colors.green("+")} ${colors.cyan(key)}: ${formatValueColored((obj2 as Record<string, unknown>)[key], QUOTE_STRINGS)}`,
           );
         } else if (keyDiff.type === "deleted") {
           lines.push(
-            `${prefix}${colors.red("-")} ${colors.cyan(key)}: ${formatValue((obj1 as Record<string, unknown>)[key])}`,
+            `${prefix}${colors.red("-")} ${colors.cyan(key)}: ${formatValueColored((obj1 as Record<string, unknown>)[key], QUOTE_STRINGS)}`,
           );
         } else if (keyDiff.type === "modified") {
           const val1 = (obj1 as Record<string, unknown>)[key];
@@ -270,8 +234,8 @@ const renderDiff = (params: RenderDiffParams): string[] => {
 
           if (isSimpleValue(val1) && isSimpleValue(val2)) {
             lines.push(`${prefix}${colors.yellow("~")} ${colors.cyan(key)}:`);
-            lines.push(`${prefix}  ${colors.red("-")} ${formatValue(val1)}`);
-            lines.push(`${prefix}  ${colors.green("+")} ${formatValue(val2)}`);
+            lines.push(`${prefix}  ${colors.red("-")} ${formatValueColored(val1, QUOTE_STRINGS)}`);
+            lines.push(`${prefix}  ${colors.green("+")} ${formatValueColored(val2, QUOTE_STRINGS)}`);
           } else {
             lines.push(`${prefix}${colors.yellow("~")} ${colors.cyan(key)}:`);
             if (depth + 1 >= (options.maxDepth ?? 10)) {
@@ -290,7 +254,9 @@ const renderDiff = (params: RenderDiffParams): string[] => {
           }
         }
       } else if (options.showUnchanged && key in obj1 && key in obj2) {
-        lines.push(`${prefix}  ${colors.cyan(key)}: ${formatValue((obj1 as Record<string, unknown>)[key])}`);
+        lines.push(
+          `${prefix}  ${colors.cyan(key)}: ${formatValueColored((obj1 as Record<string, unknown>)[key], QUOTE_STRINGS)}`,
+        );
       }
     }
   }
@@ -352,152 +318,155 @@ const renderDiffWithDepth = (params: RenderDiffWithDepthParams): string[] => {
   return lines;
 };
 
-export const diff = (obj1: unknown, obj2: unknown, options: DiffOptions = {}) => {
-  const ctx = getCurrentContext();
-  const width = ctx.getWidth();
-  const indent = " ".repeat(ctx.offset);
+export const diff = (obj1: unknown, obj2: unknown, options: DiffOptions = {}) =>
+  renderAndReturn(() => {
+    const ctx = options.renderContext ?? getCurrentContext();
+    const width = ctx.getWidth();
+    const indent = " ".repeat(ctx.offset);
 
-  console.log(indent + colors.dim("━".repeat(width)));
-  console.log(indent + colors.cyan("  DIFF OUTPUT"));
-  console.log(indent + colors.dim("  - deleted  ~ modified  + added"));
-  console.log(indent + colors.dim("━".repeat(width)));
-  console.log();
+    write(indent + colors.dim("━".repeat(width)));
+    write(indent + colors.cyan("  DIFF OUTPUT"));
+    write(indent + colors.dim("  - deleted  ~ modified  + added"));
+    write(indent + colors.dim("━".repeat(width)));
+    write("");
 
-  const diffs = deepDiff(obj1, obj2);
+    const diffs = deepDiff(obj1, obj2);
 
-  // if there are no diffs, or all diffs are beyond maxDepth, we need to still show structure
-  if (diffs.length > 0 && options.maxDepth !== undefined) {
-    // check if all diffs are beyond maxDepth
-    const allBeyondDepth = diffs.every((d) => d.path.length > options.maxDepth!);
-    if (allBeyondDepth) {
-      // show the structure up to maxDepth
-      const lines = renderDiffWithDepth({ obj1, obj2, diffs, options });
-      for (const line of lines) {
-        console.log(indent + line);
-      }
-      console.log();
-      console.log(indent + colors.dim("━".repeat(width)));
-      return;
-    }
-  }
-
-  const lines = renderDiff({ obj1, obj2, diffs, options });
-
-  for (const line of lines) {
-    console.log(indent + line);
-  }
-
-  console.log();
-  console.log(indent + colors.dim("━".repeat(width)));
-};
-
-export const diffWords = (text1: string, text2: string, options: DiffWordsOptions = {}) => {
-  const { ignoreCase = false, ignoreWhitespace = false } = options;
-
-  let str1 = text1;
-  let str2 = text2;
-
-  if (ignoreCase) {
-    str1 = str1.toLowerCase();
-    str2 = str2.toLowerCase();
-  }
-
-  if (ignoreWhitespace) {
-    str1 = str1.replace(/\s+/g, " ").trim();
-    str2 = str2.replace(/\s+/g, " ").trim();
-  }
-
-  const words1 = str1.split(/\s+/);
-  const words2 = str2.split(/\s+/);
-
-  const maxLen = Math.max(words1.length, words2.length);
-  const diffs: { type: string; word: string; index: number }[] = [];
-
-  for (let i = 0; i < maxLen; i++) {
-    const word1 = words1[i];
-    const word2 = words2[i];
-
-    if (word1 === word2) {
-      diffs.push({ type: "unchanged", word: word1 || "", index: i });
-    } else if (word2 && !word1) {
-      diffs.push({ type: "added", word: word2, index: i });
-    } else if (word1 && !word2) {
-      diffs.push({ type: "deleted", word: word1, index: i });
-    } else {
-      diffs.push({ type: "deleted", word: word1 || "", index: i });
-      diffs.push({ type: "added", word: word2 || "", index: i });
-    }
-  }
-
-  const ctx = getCurrentContext();
-  const width = ctx.getWidth();
-  const indent = " ".repeat(ctx.offset);
-
-  console.log(indent + colors.dim("━".repeat(width)));
-  console.log(indent + colors.cyan("  WORD DIFF"));
-  console.log(indent + colors.dim("━".repeat(width)));
-  console.log();
-
-  let line = "";
-  for (const diffItem of diffs) {
-    let wordStr = "";
-    switch (diffItem.type) {
-      case "added": {
-        wordStr = colors.green(`+${diffItem.word}`);
-        break;
-      }
-      case "deleted": {
-        wordStr = colors.red(`-${diffItem.word}`);
-        break;
-      }
-      case "unchanged": {
-        wordStr = diffItem.word;
-        break;
-      }
-      default: {
-        wordStr = diffItem.word;
-        break;
+    // if there are no diffs, or all diffs are beyond maxDepth, we need to still show structure
+    if (diffs.length > 0 && options.maxDepth !== undefined) {
+      // check if all diffs are beyond maxDepth
+      const allBeyondDepth = diffs.every((d) => d.path.length > options.maxDepth!);
+      if (allBeyondDepth) {
+        // show the structure up to maxDepth
+        const lines = renderDiffWithDepth({ obj1, obj2, diffs, options });
+        for (const line of lines) {
+          write(indent + line);
+        }
+        write("");
+        write(indent + colors.dim("━".repeat(width)));
+        return;
       }
     }
 
-    if (line.length + wordStr.length > width - 10) {
-      console.log(indent + line);
-      line = `${wordStr} `;
-    } else {
-      line += `${wordStr} `;
+    const lines = renderDiff({ obj1, obj2, diffs, options });
+
+    for (const line of lines) {
+      write(indent + line);
     }
-  }
 
-  if (line.trim()) {
-    console.log(indent + line);
-  }
+    write("");
+    write(indent + colors.dim("━".repeat(width)));
+  });
 
-  console.log();
-  console.log(indent + colors.dim("━".repeat(width)));
-};
+export const diffWords = (text1: string, text2: string, options: DiffWordsOptions = {}) =>
+  renderAndReturn(() => {
+    const { ignoreCase = false, ignoreWhitespace = false } = options;
 
-export const compare = (left: unknown, right: unknown, options: CompareOptions = {}) => {
-  const { labels = ["Left", "Right"] } = options;
-  const ctx = getCurrentContext();
-  const width = ctx.getWidth();
-  const indent = " ".repeat(ctx.offset);
-  const columnWidth = Math.floor((width - 5) / 2);
+    let str1 = text1;
+    let str2 = text2;
 
-  console.log(indent + colors.dim("━".repeat(width)));
-  console.log(indent + colors.cyan(`  ${labels[0].padEnd(columnWidth)} │ ${labels[1]}`));
-  console.log(indent + colors.dim("━".repeat(width)));
+    if (ignoreCase) {
+      str1 = str1.toLowerCase();
+      str2 = str2.toLowerCase();
+    }
 
-  const leftLines = JSON.stringify(left, null, 2).split("\n");
-  const rightLines = JSON.stringify(right, null, 2).split("\n");
+    if (ignoreWhitespace) {
+      str1 = str1.replace(/\s+/g, " ").trim();
+      str2 = str2.replace(/\s+/g, " ").trim();
+    }
 
-  const maxLines = Math.max(leftLines.length, rightLines.length);
+    const words1 = str1.split(/\s+/);
+    const words2 = str2.split(/\s+/);
 
-  for (let i = 0; i < maxLines; i++) {
-    const leftLine = (leftLines[i] || "").slice(0, Math.max(0, columnWidth)).padEnd(columnWidth);
-    const rightLine = (rightLines[i] || "").slice(0, Math.max(0, columnWidth));
+    const maxLen = Math.max(words1.length, words2.length);
+    const diffs: { type: string; word: string; index: number }[] = [];
 
-    console.log(`${indent}${leftLine} │ ${rightLine}`);
-  }
+    for (let i = 0; i < maxLen; i++) {
+      const word1 = words1[i];
+      const word2 = words2[i];
 
-  console.log(indent + colors.dim("━".repeat(width)));
-};
+      if (word1 === word2) {
+        diffs.push({ type: "unchanged", word: word1 || "", index: i });
+      } else if (word2 && !word1) {
+        diffs.push({ type: "added", word: word2, index: i });
+      } else if (word1 && !word2) {
+        diffs.push({ type: "deleted", word: word1, index: i });
+      } else {
+        diffs.push({ type: "deleted", word: word1 || "", index: i });
+        diffs.push({ type: "added", word: word2 || "", index: i });
+      }
+    }
+
+    const ctx = getCurrentContext();
+    const width = ctx.getWidth();
+    const indent = " ".repeat(ctx.offset);
+
+    write(indent + colors.dim("━".repeat(width)));
+    write(indent + colors.cyan("  WORD DIFF"));
+    write(indent + colors.dim("━".repeat(width)));
+    write("");
+
+    let line = "";
+    for (const diffItem of diffs) {
+      let wordStr = "";
+      switch (diffItem.type) {
+        case "added": {
+          wordStr = colors.green(`+${diffItem.word}`);
+          break;
+        }
+        case "deleted": {
+          wordStr = colors.red(`-${diffItem.word}`);
+          break;
+        }
+        case "unchanged": {
+          wordStr = diffItem.word;
+          break;
+        }
+        default: {
+          wordStr = diffItem.word;
+          break;
+        }
+      }
+
+      if (stripAnsi(line).length + stripAnsi(wordStr).length > width - 10) {
+        write(indent + line);
+        line = `${wordStr} `;
+      } else {
+        line += `${wordStr} `;
+      }
+    }
+
+    if (line.trim()) {
+      write(indent + line);
+    }
+
+    write("");
+    write(indent + colors.dim("━".repeat(width)));
+  });
+
+export const compare = (left: unknown, right: unknown, options: CompareOptions = {}) =>
+  renderAndReturn(() => {
+    const { labels = ["Left", "Right"], renderContext } = options;
+    const ctx = renderContext ?? getCurrentContext();
+    const width = ctx.getWidth();
+    const indent = " ".repeat(ctx.offset);
+    const columnWidth = Math.floor((width - 5) / 2);
+
+    write(indent + colors.dim("━".repeat(width)));
+    write(indent + colors.cyan(`  ${labels[0].padEnd(columnWidth)} │ ${labels[1]}`));
+    write(indent + colors.dim("━".repeat(width)));
+
+    const leftLines = JSON.stringify(left, null, 2).split("\n");
+    const rightLines = JSON.stringify(right, null, 2).split("\n");
+
+    const maxLines = Math.max(leftLines.length, rightLines.length);
+
+    for (let i = 0; i < maxLines; i++) {
+      const leftLine = (leftLines[i] || "").slice(0, Math.max(0, columnWidth)).padEnd(columnWidth);
+      const rightLine = (rightLines[i] || "").slice(0, Math.max(0, columnWidth));
+
+      write(`${indent}${leftLine} │ ${rightLine}`);
+    }
+
+    write(indent + colors.dim("━".repeat(width)));
+  });

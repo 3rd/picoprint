@@ -20,8 +20,8 @@ printExample("Line Width", [{ title: "Custom width", handler: () => p.line({ wid
 // Line labels
 printExample("Line Labels", [
   { title: "Default label", handler: () => p.line("Section Title") },
-  { title: "Left-aligned label", handler: () => p.line({ label: "Left Aligned", align: "left" }) },
-  { title: "Right-aligned label", handler: () => p.line({ label: "Right Aligned", align: "right" }) },
+  { title: "Left-aligned label", handler: () => p.line({ label: "Left Aligned", labelAlign: "left" }) },
+  { title: "Right-aligned label", handler: () => p.line({ label: "Right Aligned", labelAlign: "right" }) },
   { title: "Custom padding", handler: () => p.line({ label: "Extra Padding", padding: 10 }) },
   { title: "Custom separator", handler: () => p.line({ label: "Custom Separator", separator: "|" }) },
   {
@@ -33,18 +33,25 @@ printExample("Line Labels", [
 // Line label colors
 printExample("Line Label Colors", [
   { title: "Default color", handler: () => p.line({ label: "Default Foreground Color" }) },
-  { title: "Red label", handler: () => p.line({ label: "Red Label", titleColor: p.red }) },
-  { title: "Green label", handler: () => p.line({ label: "Green Label", titleColor: p.green }) },
+  { title: "Red label", handler: () => p.line({ label: "Red Label", titleColor: p.color.red }) },
+  { title: "Green label", handler: () => p.line({ label: "Green Label", titleColor: p.color.green }) },
   {
     title: "Blue label + yellow line",
-    handler: () => p.line({ label: "Blue Label", titleColor: p.blue, color: p.yellow }),
+    handler: () => p.line({ label: "Blue Label", titleColor: p.color.blue, color: p.color.yellow }),
   },
-  { title: "Bright cyan label", handler: () => p.line({ label: "Bright Cyan", titleColor: p.cyanBright }) },
+  {
+    title: "Bright cyan label",
+    handler: () => p.line({ label: "Bright Cyan", titleColor: p.color.cyanBright }),
+  },
   {
     title: "Bold magenta label",
-    handler: () => p.line({ label: "Bold Magenta", titleColor: (text) => p.bold(p.magenta(text)) }),
+    handler: () =>
+      p.line({ label: "Bold Magenta", titleColor: (text) => p.color.bold(p.color.magenta(text)) }),
   },
-  { title: "Underlined label", handler: () => p.line({ label: "Underlined", titleColor: p.underline }) },
+  {
+    title: "Underlined label",
+    handler: () => p.line({ label: "Underlined", titleColor: p.color.underline }),
+  },
 ]);
 
 // Shortcuts
@@ -63,5 +70,5 @@ printExample("Shortcuts", [
 
 // Special patterns
 printExample("Special Patterns", [
-  { title: "Gradient", handler: () => p.line.gradient({ start: p.magenta, end: p.yellow }) },
+  { title: "Gradient", handler: () => p.line.gradient({ start: p.color.magenta, end: p.color.yellow }) },
 ]);

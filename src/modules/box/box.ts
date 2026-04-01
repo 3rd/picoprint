@@ -1,16 +1,20 @@
-import type { BackgroundColorFunction, ForegroundColorFunction } from "../../utils/colors";
+import type { BackgroundColorFunction, ForegroundColorFunction } from "@/utils/colors";
+import { stripAnsi } from "@/utils/ansi";
+import { applyBgToSegments, getBackgroundOrIdentity } from "@/utils/background";
+import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
+import { renderALS } from "@/utils/render-als";
+import { applyTextWrapping } from "@/utils/string";
+import { renderAndReturn, write } from "@/utils/writer";
 import type { RenderContext } from "../context";
-import { stripAnsi } from "../../utils/ansi";
-import { applyBgToSegments, getBackgroundOrIdentity } from "../../utils/background";
-import { getLineStyle, type LineStyleName } from "../../utils/line-styles";
-import { applyTextWrapping } from "../../utils/string";
 import { dim } from "../colors";
-import { createContext, getCurrentContext, popContext, pushContext } from "../context";
+import { getConfig } from "../config";
+import { createContext, getCurrentContext } from "../context";
+import { BORDER_WIDTH, buildTopBorder } from "./_shared";
 
 export interface BoxOptions {
   width?: number;
   style?: LineStyleName;
-  color?: ForegroundColorFunction;
+  borderColor?: ForegroundColorFunction;
   background?: BackgroundColorFunction;
   padding?: number;
   paddingX?: number;
@@ -18,67 +22,17 @@ export interface BoxOptions {
   title?: string;
   titleAlign?: "center" | "left" | "right";
   titleColor?: (text: string) => string;
-  context?: RenderContext;
+  renderContext?: RenderContext;
 }
 
-const BORDER_WIDTH = 2;
-const ELLIPSIS = "...";
-const ELLIPSIS_LENGTH = 3;
-
-function captureConsoleOutput<T>(fn: () => T, maxWidth: number): { lines: string[]; result: T };
-function captureConsoleOutput<T>(
-  fn: () => Promise<T>,
-  maxWidth: number,
-): Promise<{ lines: string[]; result: T }>;
-function captureConsoleOutput<T>(
-  fn: () => Promise<T> | T,
-  maxWidth: number,
-): Promise<{ lines: string[]; result: T }> | { lines: string[]; result: T };
-function captureConsoleOutput<T>(
-  fn: () => Promise<T> | T,
-  maxWidth: number,
-): Promise<{ lines: string[]; result: T }> | { lines: string[]; result: T } {
-  const originalLog = console.log;
-  const captured: string[] = [];
-
+const createBoxContext = (maxWidth: number) => {
   const innerContext = createContext(0).withOffset(0);
   Object.defineProperty(innerContext, "getWidth", {
     value: () => maxWidth,
     writable: false,
   });
-  pushContext(innerContext);
-
-  console.log = (...args: unknown[]) => {
-    const text = args.map(String).join(" ");
-    const lines = text.split(/\r?\n/);
-    for (const line of lines) captured.push(line);
-  };
-
-  try {
-    const result = fn();
-
-    if (result instanceof Promise) {
-      return result
-        .then(async (value) => {
-          console.log = originalLog;
-          popContext();
-          return { lines: captured, result: value };
-        })
-        .catch((error: unknown) => {
-          console.log = originalLog;
-          popContext();
-          throw error;
-        });
-    }
-    console.log = originalLog;
-    popContext();
-    return { lines: captured, result };
-  } catch (error) {
-    console.log = originalLog;
-    popContext();
-    throw error;
-  }
-}
+  return innerContext;
+};
 
 const wrapLines = (lines: string[], maxWidth: number) => {
   const wrapped: string[] = [];
@@ -87,65 +41,6 @@ const wrapLines = (lines: string[], maxWidth: number) => {
     wrapped.push(...segments);
   }
   return wrapped;
-};
-
-interface BorderOptions {
-  width: number;
-  styleName: LineStyleName;
-  colorFn: (str: string) => string;
-  title?: string;
-  titleAlign: "center" | "left" | "right";
-  titleColor?: (text: string) => string;
-  background?: (s: string) => string;
-}
-
-const buildTopBorder = (options: BorderOptions) => {
-  const { width, styleName, colorFn, title, titleAlign, titleColor, background } = options;
-  const style = getLineStyle(styleName);
-  const innerWidth = width - BORDER_WIDTH;
-
-  if (!title) {
-    const line = colorFn(style.topLeft + style.horizontal.repeat(Math.max(0, innerWidth)) + style.topRight);
-    return background ? background(line) : line;
-  }
-
-  const titleWithSpaces = ` ${title} `;
-  const titleLength = stripAnsi(titleWithSpaces).length;
-
-  if (titleLength >= innerWidth) {
-    const truncated = `${titleWithSpaces.slice(0, Math.max(0, innerWidth - ELLIPSIS_LENGTH))}${ELLIPSIS}`;
-    return colorFn(style.topLeft + truncated + style.topRight);
-  }
-
-  const remainingWidth = innerWidth - titleLength;
-  let leftWidth: number;
-  let rightWidth: number;
-
-  switch (titleAlign) {
-    case "left": {
-      leftWidth = 0;
-      rightWidth = remainingWidth;
-      break;
-    }
-    case "right": {
-      leftWidth = remainingWidth;
-      rightWidth = 0;
-      break;
-    }
-    default: {
-      leftWidth = Math.floor(remainingWidth / 2);
-      rightWidth = remainingWidth - leftWidth;
-      break;
-    }
-  }
-
-  const displayTitle = titleColor ? titleColor(titleWithSpaces) : titleWithSpaces;
-
-  const res =
-    colorFn(style.topLeft + style.horizontal.repeat(Math.max(0, leftWidth))) +
-    displayTitle +
-    colorFn(style.horizontal.repeat(Math.max(0, rightWidth)) + style.topRight);
-  return background ? background(res) : res;
 };
 
 interface RenderBoxParams {
@@ -228,29 +123,25 @@ const renderBox = (params: RenderBoxParams) => {
   boxLines.push(hasBg ? bgFn(bottom) : bottom);
 
   const indent = " ".repeat(ctx.offset);
-  for (const line of boxLines) console.log(indent + line);
+  for (const line of boxLines) write(indent + line);
 };
 
-export function box(content: string, options?: BoxOptions): void;
+export function box(content: string, options?: BoxOptions): string;
 export function box<T>(content: () => T, options?: BoxOptions): T;
 export function box<T>(content: () => Promise<T>, options?: BoxOptions): Promise<T>;
-export function box<T>(
-  content: (() => Promise<T>) | (() => T) | string,
-  options?: BoxOptions,
-): Promise<T> | T | void;
 export function box<T = void>(
   content: (() => Promise<T>) | (() => T) | string,
   options: BoxOptions = {},
-): Promise<T> | T | void {
-  const ctx = options.context ?? getCurrentContext();
+): Promise<T> | T | string {
+  const ctx = options.renderContext ?? getCurrentContext();
   const width = options.width ?? ctx.getWidth();
-  const styleName = options.style ?? "single";
+  const styleName = options.style ?? getConfig().defaults?.style ?? "single";
   const paddingX = options.paddingX ?? options.padding ?? 0;
   const paddingY = options.paddingY ?? options.padding ?? 0;
   const titleAlign = options.titleAlign ?? "center";
 
   const boxStyle = getLineStyle(styleName);
-  const colorFn = options.color ?? dim;
+  const colorFn = options.borderColor ?? dim;
   const hasBg = Boolean(options.background);
   const bgFn = getBackgroundOrIdentity(options.background);
 
@@ -258,32 +149,45 @@ export function box<T = void>(
   const maxContentWidth = innerWidth - paddingX * 2;
 
   if (typeof content === "function") {
-    const captureResult = captureConsoleOutput(content, maxContentWidth);
+    const renderParams = {
+      width,
+      styleName,
+      colorFn,
+      bgFn,
+      hasBg,
+      boxStyle,
+      paddingX,
+      paddingY,
+      innerWidth,
+      ctx,
+      title: options.title,
+      titleAlign,
+      titleColor: options.titleColor,
+    };
 
-    if (captureResult instanceof Promise) {
-      return captureResult.then(({ lines, result }) => {
-        const wrappedLines = wrapLines(lines, maxContentWidth);
-        renderBox({
-          wrappedLines,
-          width,
-          styleName,
-          colorFn,
-          bgFn,
-          hasBg,
-          boxStyle,
-          paddingX,
-          paddingY,
-          innerWidth,
-          ctx,
-          title: options.title,
-          titleAlign,
-          titleColor: options.titleColor,
-        });
-        return result;
-      });
+    const boxCtx = createBoxContext(maxContentWidth);
+    const buffer: string[] = [];
+    const store = { writer: (line: string) => buffer.push(line), renderContext: boxCtx };
+
+    const finalize = <V>(value: V): V => {
+      const wrappedLines = wrapLines(buffer, maxContentWidth);
+      renderBox({ wrappedLines, ...renderParams });
+      return value;
+    };
+
+    const rawResult = renderALS.run(store, () => (content as () => Promise<T> | T)());
+
+    if (rawResult instanceof Promise) {
+      return rawResult.then(finalize) as Promise<T>;
     }
-    const { lines, result } = captureResult;
-    const wrappedLines = wrapLines(lines, maxContentWidth);
+
+    return finalize(rawResult);
+  }
+
+  return renderAndReturn(() => {
+    const contentLines = content.split("\n");
+
+    const wrappedLines = wrapLines(contentLines, maxContentWidth);
     renderBox({
       wrappedLines,
       width,
@@ -300,49 +204,19 @@ export function box<T = void>(
       titleAlign,
       titleColor: options.titleColor,
     });
-    return result;
-  }
-
-  const contentLines = content.split("\n");
-
-  const wrappedLines = wrapLines(contentLines, maxContentWidth);
-  renderBox({
-    wrappedLines,
-    width,
-    styleName,
-    colorFn,
-    bgFn,
-    hasBg,
-    boxStyle,
-    paddingX,
-    paddingY,
-    innerWidth,
-    ctx,
-    title: options.title,
-    titleAlign,
-    titleColor: options.titleColor,
   });
 }
 
-function boxFrame(content: string, options?: Partial<BoxOptions>): void;
-function boxFrame<T>(content: () => T, options?: Partial<BoxOptions>): T;
-function boxFrame<T>(content: () => Promise<T>, options?: Partial<BoxOptions>): Promise<T>;
-function boxFrame<T>(
-  content: (() => Promise<T>) | (() => T) | string,
-  options: Partial<BoxOptions> = {},
-): Promise<T> | T | void {
-  return box(content, { ...options });
-}
-box.frame = boxFrame;
-
-function boxPanel(title: string, content: string, options?: Partial<BoxOptions>): void;
+function boxPanel(title: string, content: string, options?: Partial<BoxOptions>): string;
 function boxPanel<T>(title: string, content: () => T, options?: Partial<BoxOptions>): T;
 function boxPanel<T>(title: string, content: () => Promise<T>, options?: Partial<BoxOptions>): Promise<T>;
 function boxPanel<T>(
   title: string,
   content: (() => Promise<T>) | (() => T) | string,
   options: Partial<BoxOptions> = {},
-): Promise<T> | T | void {
-  return box(content, { ...options, title, style: "rounded", padding: 1 });
+): Promise<T> | T | string {
+  const opts: BoxOptions = { ...options, title, style: "rounded", padding: 1 };
+  if (typeof content === "string") return box(content, opts);
+  return box(content as () => T, opts);
 }
 box.panel = boxPanel;

@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import {
   directory,
   DirectoryEntry,
@@ -12,21 +13,15 @@ import {
 } from "./tree";
 
 describe("tree", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   describe("basic tree rendering", () => {
@@ -38,7 +33,7 @@ describe("tree", () => {
 
       tree(treeNode);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("root");
       expect(output).toContain("child1");
@@ -288,7 +283,7 @@ describe("tree", () => {
 
       tree(treeNode);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.join("\n")).toContain("test");
     });
   });
@@ -439,7 +434,7 @@ describe("tree", () => {
 
       directory(dir);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.join("\n")).toContain("test");
     });
   });
@@ -540,7 +535,7 @@ describe("tree", () => {
 
       treeFromObject(obj);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.join("\n")).toContain("test");
     });
   });
@@ -610,7 +605,7 @@ describe("tree", () => {
 
       treeSearch(treeNode, "test");
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.join("\n")).toContain("test");
     });
   });
@@ -682,7 +677,7 @@ describe("tree", () => {
 
       treeStats(treeNode);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       expect(logOutput.join("\n")).toContain("test");
     });
   });

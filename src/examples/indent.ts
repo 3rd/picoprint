@@ -29,7 +29,7 @@ printExample("Indent & Dedent", [
           p.dedent();
           p.log("inner: c");
         },
-        { title: "box", style: "rounded", color: p.gray, padding: 0 },
+        { title: "box", style: "rounded", borderColor: p.color.gray, padding: 0 },
       );
       p.log("outer: after");
       p.dedent();

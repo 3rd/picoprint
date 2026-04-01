@@ -1,0 +1,7 @@
+{
+  "entry": ["src/index.ts"],
+  "project": ["src/**/*.ts"],
+  "ignore": ["src/examples/**", "src/dev.ts"],
+  "ignoreDependencies": ["bun-types"],
+  "ignoreExportsUsedInFile": true
+}

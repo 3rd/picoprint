@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import type { CalendarEvent } from "./types";
 import { colors } from "../colors";
-import { calendar, calendarWithEvents } from "./calendar";
+import { calendar } from "./calendar";
 
 // eslint-disable-next-line no-control-regex
 const stripAnsi = (str: string) => str.replace(/\u001b\[[\d;]*m/g, "");
@@ -13,17 +14,15 @@ const AUGUST = 7;
 const DECEMBER = 11;
 
 describe("calendar", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
+  let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
-    logSpy = mock((..._args) => {});
-    console.log = logSpy;
+    logOutput = [];
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   it("should render a basic calendar", () => {
@@ -116,7 +115,8 @@ describe("calendar", () => {
 
     it("should render calendar with events", () => {
       const events = [createEvent(10, "Meeting"), createEvent(20, "Deadline")];
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), events, {
+      const result = calendar(new Date(2025, AUGUST, 1), {
+        events,
         showHeader: true,
         showFooter: true,
       });
@@ -128,7 +128,8 @@ describe("calendar", () => {
 
     it("should render without header when showHeader is false", () => {
       const events = [createEvent(10, "Meeting")];
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), events, {
+      const result = calendar(new Date(2025, AUGUST, 1), {
+        events,
         showHeader: false,
       });
       const stripped = stripAnsi(result);
@@ -138,7 +139,8 @@ describe("calendar", () => {
 
     it("should render with footer when showFooter is true", () => {
       const events = [createEvent(10, "Meeting")];
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), events, {
+      const result = calendar(new Date(2025, AUGUST, 1), {
+        events,
         showHeader: true,
         showFooter: true,
       });
@@ -149,9 +151,11 @@ describe("calendar", () => {
     });
 
     it("should handle empty events array", () => {
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), [], { showHeader: true });
-      expect(result).toContain("August 2025 - Events");
-      expect(result).not.toContain("Events:");
+      const result = calendar(new Date(2025, AUGUST, 1), { events: [], showHeader: true });
+      const stripped = stripAnsi(result);
+      // empty events array produces no "- Events" suffix
+      expect(stripped).not.toContain("August 2025 - Events");
+      expect(stripped).not.toContain("Events:");
     });
 
     it("should filter events by month", () => {
@@ -164,7 +168,7 @@ describe("calendar", () => {
           priority: "high" as const,
         },
       ];
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), events, { showFooter: true });
+      const result = calendar(new Date(2025, AUGUST, 1), { events, showFooter: true });
       expect(result).toContain("August Event");
       expect(result).not.toContain("July Event");
     });
@@ -175,7 +179,7 @@ describe("calendar", () => {
         { date: new Date(2025, AUGUST, 11), label: "Medium", priority: "medium" },
         { date: new Date(2025, AUGUST, 12), label: "Low", priority: "low" },
       ];
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), events, { showFooter: true });
+      const result = calendar(new Date(2025, AUGUST, 1), { events, showFooter: true });
       expect(result).toContain("🔥");
       expect(result).toContain("⚡");
       expect(result).toContain("📌");
@@ -188,7 +192,7 @@ describe("calendar", () => {
         label: `Event ${i}`,
         color: colors[colorName],
       }));
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), events, { showFooter: true });
+      const result = calendar(new Date(2025, AUGUST, 1), { events, showFooter: true });
       expect(result).toContain("Events:");
       for (const event of events) {
         expect(result).toContain(event.label);
@@ -201,7 +205,7 @@ describe("calendar", () => {
         createEvent(15, "Meeting 2"),
         createEvent(15, "Meeting 3"),
       ];
-      const result = calendarWithEvents(new Date(2025, AUGUST, 1), events, { showFooter: true });
+      const result = calendar(new Date(2025, AUGUST, 1), { events, showFooter: true });
       expect(result).toContain("Meeting 1");
       expect(result).toContain("Meeting 2");
       expect(result).toContain("Meeting 3");

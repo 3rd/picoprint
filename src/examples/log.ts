@@ -12,9 +12,9 @@ printExample("Logging", [
   {
     title: "chainable .log",
     handler: () => {
-      p.yellow.log("warn:", "disk", 95, "%");
-      p.bold.yellow.log("ready");
-      p.bgBlue.white.log("INFO:", "server", "listening");
+      p.color.yellow.log("warn:", "disk", 95, "%");
+      p.color.bold.yellow.log("ready");
+      p.color.bgBlue.white.log("INFO:", "server", "listening");
     },
   },
 ]);

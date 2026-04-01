@@ -9,6 +9,7 @@ import {
 import { formatWithTree } from "@/modules/pp/tree";
 import { applyTextWrapping } from "@/utils/string";
 import { isSimpleValue } from "@/utils/value-helpers";
+import { write } from "@/utils/writer";
 import type { Closable } from "./_shared";
 import { TREE_MARGIN, visibleLen } from "./_shared";
 
@@ -18,7 +19,7 @@ export interface TreeStreamOptions {
   nodeColor?: (s: string) => string; // default colors.cyan
   valueColor?: (s: string) => string; // default colors.yellow
   connectorColor?: (s: string) => string; // default colors.dim
-  context?: RenderContext;
+  renderContext?: RenderContext;
 }
 export interface TreeStream extends Closable {
   node: (text: string) => void; // print a node at current depth
@@ -28,7 +29,7 @@ export interface TreeStream extends Closable {
 }
 
 export const tree = (options: TreeStreamOptions = {}): TreeStream => {
-  const ctx = options.context ?? getCurrentContext();
+  const ctx = options.renderContext ?? getCurrentContext();
   const indentBase = " ".repeat(ctx.offset);
   const bullet = options.bullet ?? "•";
   const indentUnit = options.indent ?? "│ ";
@@ -47,8 +48,8 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
     const avail = Math.max(1, width - visibleLen(p + headColored) - TREE_MARGIN);
     const wrapIndent = p + " ".repeat(visibleLen(head));
     const wrapped = applyTextWrapping(contentColored, avail, wrapIndent);
-    console.log(indentBase + p + headColored + (wrapped[0] ?? ""));
-    for (let i = 1; i < wrapped.length; i++) console.log(indentBase + wrapped[i]!);
+    write(indentBase + p + headColored + (wrapped[0] ?? ""));
+    for (let i = 1; i < wrapped.length; i++) write(indentBase + wrapped[i]!);
   };
 
   return {
@@ -103,7 +104,7 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
       const lines = formatWithTree(value, fctx, "");
       printlnWrapped(`${bullet} `, `${keyStr}: ${valueColor(String(lines[0] ?? ""))}`);
       for (let i = 1; i < lines.length; i++) {
-        console.log(`${indentBase + prefix()}  ${lines[i]}`);
+        write(`${indentBase + prefix()}  ${lines[i]}`);
       }
     },
     close: () => {

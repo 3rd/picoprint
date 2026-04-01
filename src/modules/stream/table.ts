@@ -1,7 +1,8 @@
 import { colors, keyColor } from "@/modules/colors";
 import { getCurrentContext, type RenderContext } from "@/modules/context";
-import { stripAnsi } from "@/utils/ansi";
+import { formatTableCell, padCell } from "@/modules/table/_shared";
 import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
+import { write } from "@/utils/writer";
 import { Closable, visibleLen } from "./_shared";
 
 export interface TableStreamOptions {
@@ -11,49 +12,14 @@ export interface TableStreamOptions {
   showIndex?: boolean;
   compact?: boolean;
   style?: LineStyleName;
-  context?: RenderContext;
+  renderContext?: RenderContext;
 }
 export interface TableStream extends Closable {
   row: (data: Record<string, unknown>) => void;
 }
 
-const padCell = (
-  str: string,
-  width: number,
-  alignment: "center" | "left" | "right",
-  padding: number,
-): string => {
-  const stripped = stripAnsi(str);
-  let out = str;
-  if (stripped.length > width) out = `${str.slice(0, Math.max(0, width - 3))}...`;
-  const content = stripAnsi(out).length;
-  const total = width - content;
-  let res = " ".repeat(padding);
-  if (alignment === "right") res += " ".repeat(total) + out;
-  else if (alignment === "center") {
-    const left = Math.floor(total / 2),
-      right = total - left;
-    res += " ".repeat(left) + out + " ".repeat(right);
-  } else res += out + " ".repeat(total);
-  res += " ".repeat(padding);
-  return res;
-};
-
-const formatTableCell = (value: unknown): string => {
-  if (value === null) return colors.gray("null");
-  if (value === undefined) return colors.gray("undefined");
-  if (typeof value === "boolean") return colors.magenta(String(value));
-  if (typeof value === "number") return colors.yellow(String(value));
-  if (typeof value === "bigint") return colors.yellow(`${value}n`);
-  if (value instanceof Date) return colors.cyan(value.toISOString());
-  if (typeof value === "string") return colors.green(value);
-  if (Array.isArray(value)) return colors.cyan(`[Array(${value.length})]`);
-  if (typeof value === "object") return colors.cyan("[Object]");
-  return String(value);
-};
-
 export const table = (opts: TableStreamOptions): TableStream => {
-  const ctx = opts.context ?? getCurrentContext();
+  const ctx = opts.renderContext ?? getCurrentContext();
   const indent = " ".repeat(ctx.offset);
   const styleName = opts.style ?? "single";
   const style = getLineStyle(styleName);
@@ -93,7 +59,7 @@ export const table = (opts: TableStreamOptions): TableStream => {
       return style.bottomRight;
     })();
     out += appendValue;
-    console.log(indent + colors.gray(out));
+    write(indent + colors.gray(out));
   };
 
   const drawHeader = () => {
@@ -105,7 +71,7 @@ export const table = (opts: TableStreamOptions): TableStream => {
       const w = widths[h] ?? 0;
       line += padCell(label, w, align, padding) + colors.gray(style.vertical);
     }
-    console.log(indent + line);
+    write(indent + line);
     drawLine("middle");
   };
 
@@ -130,7 +96,7 @@ export const table = (opts: TableStreamOptions): TableStream => {
         const w = widths[h] ?? 0;
         line += padCell(cell, w, align, padding) + colors.gray(style.vertical);
       }
-      console.log(indent + line);
+      write(indent + line);
     },
     close: () => {
       drawLine("bottom");

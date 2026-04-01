@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
-import { createContext, defaultContext } from "./context";
+import {
+  createContext,
+  decreaseIndent,
+  defaultContext,
+  getCurrentContext,
+  increaseIndent,
+  popContext,
+  pushContext,
+} from "./context";
 
 type ColumnsGetter = () => number | undefined;
 
@@ -102,6 +110,76 @@ describe("RenderContext", () => {
 
     it("returns full terminal width", () => {
       expect(defaultContext.getWidth()).toBe(80);
+    });
+  });
+
+  describe("context stack (pushContext/popContext)", () => {
+    afterEach(() => {
+      // clean up any leaked contexts
+      while (getCurrentContext() !== defaultContext) popContext();
+    });
+
+    it("returns defaultContext when stack is empty", () => {
+      expect(getCurrentContext()).toBe(defaultContext);
+    });
+
+    it("pushContext/popContext round-trips", () => {
+      const before = getCurrentContext();
+      const custom = createContext(10);
+      pushContext(custom);
+      expect(getCurrentContext().offset).toBe(10);
+      popContext();
+      expect(getCurrentContext()).toBe(before);
+    });
+
+    it("supports nested push/pop", () => {
+      pushContext(createContext(4));
+      pushContext(createContext(8));
+      expect(getCurrentContext().offset).toBe(8);
+      popContext();
+      expect(getCurrentContext().offset).toBe(4);
+      popContext();
+      expect(getCurrentContext()).toBe(defaultContext);
+    });
+  });
+
+  describe("increaseIndent/decreaseIndent", () => {
+    afterEach(() => {
+      // clean up any leaked indents
+      while (getCurrentContext() !== defaultContext) {
+        decreaseIndent();
+        popContext();
+      }
+    });
+
+    it("increaseIndent increases offset", () => {
+      const before = getCurrentContext().offset;
+      increaseIndent(4);
+      expect(getCurrentContext().offset).toBe(before + 4);
+      decreaseIndent();
+    });
+
+    it("decreaseIndent restores previous offset", () => {
+      const before = getCurrentContext().offset;
+      increaseIndent(4);
+      decreaseIndent();
+      expect(getCurrentContext().offset).toBe(before);
+    });
+
+    it("handles multiple indent/dedent cycles", () => {
+      increaseIndent(2);
+      increaseIndent(3);
+      expect(getCurrentContext().offset).toBe(5);
+      decreaseIndent();
+      expect(getCurrentContext().offset).toBe(2);
+      decreaseIndent();
+      expect(getCurrentContext().offset).toBe(0);
+    });
+
+    it("decreaseIndent with empty stack is a no-op", () => {
+      const before = getCurrentContext();
+      decreaseIndent();
+      expect(getCurrentContext()).toBe(before);
     });
   });
 

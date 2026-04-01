@@ -33,11 +33,11 @@ printExample("Basic Examples", [
 
 // Options
 printExample("Stack Trace Options", [
-  { title: "Current stack trace", handler: () => p.stack() },
+  { title: "Current stack trace", handler: () => p.trace.stack() },
   {
     title: "Custom options",
     handler: () => {
-      p.stack(undefined, {
+      p.trace.stack(undefined, {
         maxFrames: 3,
         showFiles: "show",
       });
@@ -47,7 +47,7 @@ printExample("Stack Trace Options", [
     title: "Skip frames",
     handler: () => {
       const skipError = new Error("Skip some frames");
-      p.stack(skipError, {
+      p.trace.stack(skipError, {
         skipFrames: 2,
         maxFrames: 5,
       });
@@ -57,7 +57,7 @@ printExample("Stack Trace Options", [
     title: "Hide file paths",
     handler: () => {
       const noFilesError = new Error("Hide file paths");
-      p.stack(noFilesError, {
+      p.trace.stack(noFilesError, {
         showFiles: "hide",
         maxFrames: 5,
       });
@@ -71,21 +71,21 @@ printExample("Error Formatting", [
     title: "Standard Error",
     handler: () => {
       const standardError = new Error("Standard error message");
-      p.error(standardError);
+      p.trace.error(standardError);
     },
   },
   {
     title: "TypeError",
     handler: () => {
       const typeError = new TypeError("Cannot read property 'foo' of undefined");
-      p.error(typeError);
+      p.trace.error(typeError);
     },
   },
   {
     title: "RangeError",
     handler: () => {
       const rangeError = new RangeError("Maximum call stack size exceeded");
-      p.error(rangeError);
+      p.trace.error(rangeError);
     },
   },
   {
@@ -93,27 +93,27 @@ printExample("Error Formatting", [
     handler: () => {
       const rootCause = new Error("Database unavailable");
       const wrappedError = new Error("Failed to fetch user data", { cause: rootCause });
-      p.error(wrappedError);
+      p.trace.error(wrappedError);
     },
   },
   {
     title: "Non-Error values",
     handler: () => {
-      p.error("String error");
-      p.error(404);
-      p.error({ message: "Object error", code: "ERR_001" });
+      p.trace.error("String error");
+      p.trace.error(404);
+      p.trace.error({ message: "Object error", code: "ERR_001" });
     },
   },
 ]);
 
 // Call stack
 printExample("Call Stack", [
-  { title: "Current call stack", handler: () => p.callStack() },
+  { title: "Current call stack", handler: () => p.trace.callStack() },
   {
     title: "Nested function stack",
     handler: () => {
       const level3 = () => {
-        p.callStack();
+        p.trace.callStack();
       };
       const level2 = () => {
         level3();
@@ -171,7 +171,7 @@ printExample("Stack Highlighting", [
     at anotherCritical (critical.js:28:9)
     at regularFunction (app.js:100:5)`;
 
-      p.stack(stackForHighlight, {
+      p.trace.stack(stackForHighlight, {
         highlight: /critical\.js/,
         showFiles: "show",
       });
@@ -188,7 +188,7 @@ printExample("Nested Errors", [
       const level2Error = new Error("Mid level: Config loading failed", { cause: level1Error });
       const level3Error = new Error("High level: Application startup failed", { cause: level2Error });
 
-      p.error(level3Error);
+      p.trace.error(level3Error);
     },
   },
 ]);

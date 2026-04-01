@@ -16,6 +16,7 @@ import {
   rgb,
 } from "../utils/colors";
 import { toInlineLogString } from "../utils/log-format";
+import { write } from "../utils/writer";
 import { getCurrentContext } from "./context";
 
 export type ForegroundColorName = {
@@ -67,7 +68,7 @@ const makeChainFn = <K extends Kind>(chain: BaseFn[], kind: K): Chainable<K> => 
           });
           const combined = pieces.join(" ");
           const lines = combined.split(/\r?\n/);
-          for (const line of lines) console.log(indent + line);
+          for (const line of lines) write(indent + line);
           return combined;
         };
       }

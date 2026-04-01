@@ -35,9 +35,9 @@ printExample("Inspect Configuration", [
     },
   },
   {
-    title: "configure() with no args returns config",
+    title: "getConfig() returns current config",
     handler: () => {
-      const currentConfig = p.configure();
+      const currentConfig = p.getConfig();
       p(currentConfig);
     },
   },

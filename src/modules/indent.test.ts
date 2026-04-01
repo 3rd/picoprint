@@ -1,5 +1,6 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 
 let p: typeof import("@/.").default;
 
@@ -10,22 +11,16 @@ beforeAll(async () => {
 });
 
 describe("p.indent / p.dedent (global indent control)", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let output: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     output = [];
-    logSpy = mock((...args) => {
-      output.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => output.push(line));
     process.env.FORCE_COLOR = "1";
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
     for (let i = 0; i < 10; i++) p.dedent();
   });
 

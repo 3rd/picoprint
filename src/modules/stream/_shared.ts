@@ -1,7 +1,7 @@
 import { stripAnsi } from "@/utils/ansi";
 import { applyTextWrapping } from "@/utils/string";
 
-export const BORDER_WIDTH = 2;
+export { BORDER_WIDTH } from "@/modules/box/_shared";
 export const TREE_MARGIN = 2;
 
 export type Closable = { close: () => void };

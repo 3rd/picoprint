@@ -1,3 +1,5 @@
+import { renderAndReturn, write } from "@/utils/writer";
+import type { RenderContext } from "../context";
 import { colors } from "../colors";
 import { getCurrentContext } from "../context";
 
@@ -9,8 +11,10 @@ export interface TreeNode {
   expanded?: boolean;
 }
 
+export type TreeStyleName = "ascii" | "bold" | "double" | "rounded" | "unicode";
+
 export interface TreeOptions {
-  style?: "ascii" | "bold" | "double" | "rounded" | "unicode";
+  style?: TreeStyleName;
   showValues?: boolean;
   showMetadata?: boolean;
   maxDepth?: number;
@@ -18,10 +22,27 @@ export interface TreeOptions {
   sort?: (a: TreeNode, b: TreeNode) => number;
   collapseEmpty?: boolean;
   colors?: {
-    node?: keyof typeof colors;
-    value?: keyof typeof colors;
-    metadata?: keyof typeof colors;
-    connector?: keyof typeof colors;
+    node?: (s: string) => string;
+    value?: (s: string) => string;
+    metadata?: (s: string) => string;
+    connector?: (s: string) => string;
+  };
+  renderContext?: RenderContext;
+}
+
+interface ResolvedTreeOptions {
+  style: TreeStyleName;
+  showValues: boolean;
+  showMetadata: boolean;
+  maxDepth: number;
+  filter: ((node: TreeNode) => boolean) | undefined;
+  sort: ((a: TreeNode, b: TreeNode) => number) | undefined;
+  collapseEmpty: boolean;
+  colors: {
+    node: (s: string) => string;
+    value: (s: string) => string;
+    metadata: (s: string) => string;
+    connector: (s: string) => string;
   };
 }
 
@@ -40,6 +61,7 @@ export interface DirectoryOptions {
   fileIcons?: boolean;
   maxDepth?: number;
   filter?: (entry: DirectoryEntry) => boolean;
+  renderContext?: RenderContext;
 }
 
 const BYTES_IN_KB = 1024;
@@ -47,6 +69,22 @@ const BYTES_IN_MB = 1024 * 1024;
 const BYTES_IN_GB = 1024 * 1024 * 1024;
 
 const DEFAULT_MAX_DEPTH = 10;
+
+const DEFAULT_TREE_OPTIONS: ResolvedTreeOptions = {
+  style: "unicode",
+  showValues: false,
+  showMetadata: false,
+  maxDepth: DEFAULT_MAX_DEPTH,
+  filter: undefined,
+  sort: undefined,
+  collapseEmpty: false,
+  colors: {
+    node: colors.cyan,
+    value: colors.yellow,
+    metadata: colors.dim,
+    connector: colors.dim,
+  },
+};
 
 const treeStyles = {
   unicode: {
@@ -168,7 +206,7 @@ const renderTreeNode = ({
   prefix: string;
   isLast: boolean;
   style: typeof treeStyles.unicode;
-  options: Required<TreeOptions>;
+  options: ResolvedTreeOptions;
   depth?: number;
 }): string[] => {
   if (depth > options.maxDepth) {
@@ -180,10 +218,10 @@ const renderTreeNode = ({
   }
 
   const lines = [];
-  const nodeColor = (options.colors.node && colors[options.colors.node]) || colors.cyan;
-  const valueColor = (options.colors.value && colors[options.colors.value]) || colors.yellow;
-  const metadataColor = (options.colors.metadata && colors[options.colors.metadata]) || colors.dim;
-  const connectorColor = (options.colors.connector && colors[options.colors.connector]) || colors.dim;
+  const nodeColor = options.colors.node;
+  const valueColor = options.colors.value;
+  const metadataColor = options.colors.metadata;
+  const connectorColor = options.colors.connector;
 
   const connector = connectorColor(isLast ? style.lastBranch : style.branch);
 
@@ -309,63 +347,15 @@ const renderDirectoryEntry = (
   return lines;
 };
 
-export const tree = (treeNode: TreeNode, options: TreeOptions = {}) => {
-  const opts = {
-    style: "unicode",
-    showValues: false,
-    showMetadata: false,
-    maxDepth: DEFAULT_MAX_DEPTH,
-    filter: undefined,
-    sort: undefined,
-    collapseEmpty: false,
-    colors: {
-      node: "cyan",
-      value: "yellow",
-      metadata: "dim",
-      connector: "dim",
-    },
-    ...options,
-  } as Required<TreeOptions>;
+const resolveTreeOptions = (options: TreeOptions): ResolvedTreeOptions => ({
+  ...DEFAULT_TREE_OPTIONS,
+  ...options,
+  colors: { ...DEFAULT_TREE_OPTIONS.colors, ...options.colors },
+});
 
-  const lines = renderTreeNode({
-    node: treeNode,
-    prefix: "",
-    isLast: true,
-    style: treeStyles[opts.style],
-    options: opts,
-  });
-
-  const ctx = getCurrentContext();
-  const indent = " ".repeat(ctx.offset);
-
-  for (const line of lines) console.log(indent + line);
-};
-
-export const treeMulti = (trees: (TreeNode | undefined)[], options: TreeOptions = {}) => {
-  const ctx = getCurrentContext();
-  const indent = " ".repeat(ctx.offset);
-
-  for (const [i, treeNode] of trees.entries()) {
-    if (!treeNode) continue;
-
-    console.log(indent + colors.magenta(`Tree ${i + 1}: ${treeNode.name}`));
-
-    const opts = {
-      style: "unicode",
-      showValues: false,
-      showMetadata: false,
-      maxDepth: DEFAULT_MAX_DEPTH,
-      filter: undefined,
-      sort: undefined,
-      collapseEmpty: false,
-      colors: {
-        node: "cyan",
-        value: "yellow",
-        metadata: "dim",
-        connector: "dim",
-      },
-      ...options,
-    } as Required<TreeOptions>;
+export const tree = (treeNode: TreeNode, options: TreeOptions = {}) =>
+  renderAndReturn(() => {
+    const opts = resolveTreeOptions(options);
 
     const lines = renderTreeNode({
       node: treeNode,
@@ -374,32 +364,59 @@ export const treeMulti = (trees: (TreeNode | undefined)[], options: TreeOptions 
       style: treeStyles[opts.style],
       options: opts,
     });
-    for (const line of lines) console.log(indent + line);
 
-    if (i < trees.length - 1) {
-      console.log();
+    const ctx = options.renderContext ?? getCurrentContext();
+    const indent = " ".repeat(ctx.offset);
+
+    for (const line of lines) write(indent + line);
+  });
+
+export const treeMulti = (trees: (TreeNode | undefined)[], options: TreeOptions = {}) =>
+  renderAndReturn(() => {
+    const ctx = options.renderContext ?? getCurrentContext();
+    const indent = " ".repeat(ctx.offset);
+
+    for (const [i, treeNode] of trees.entries()) {
+      if (!treeNode) continue;
+
+      write(indent + colors.magenta(`Tree ${i + 1}: ${treeNode.name}`));
+
+      const opts = resolveTreeOptions(options);
+
+      const lines = renderTreeNode({
+        node: treeNode,
+        prefix: "",
+        isLast: true,
+        style: treeStyles[opts.style],
+        options: opts,
+      });
+      for (const line of lines) write(indent + line);
+
+      if (i < trees.length - 1) {
+        write("");
+      }
     }
-  }
-};
+  });
 
-export const directory = (dir: DirectoryEntry, options: DirectoryOptions = {}) => {
-  const opts = {
-    showSizes: true,
-    showPaths: false,
-    sortBy: "type",
-    fileIcons: true,
-    maxDepth: DEFAULT_MAX_DEPTH,
-    filter: undefined,
-    ...options,
-  } as Required<DirectoryOptions>;
+export const directory = (dir: DirectoryEntry, options: DirectoryOptions = {}) =>
+  renderAndReturn(() => {
+    const opts = {
+      showSizes: true,
+      showPaths: false,
+      sortBy: "type",
+      fileIcons: true,
+      maxDepth: DEFAULT_MAX_DEPTH,
+      filter: undefined,
+      ...options,
+    } as Required<DirectoryOptions>;
 
-  const lines = renderDirectoryEntry(dir, "", true, opts);
+    const lines = renderDirectoryEntry(dir, "", true, opts);
 
-  const ctx = getCurrentContext();
-  const indent = " ".repeat(ctx.offset);
+    const ctx = options.renderContext ?? getCurrentContext();
+    const indent = " ".repeat(ctx.offset);
 
-  for (const line of lines) console.log(indent + line);
-};
+    for (const line of lines) write(indent + line);
+  });
 
 const objectToTree = (obj: unknown, name: string): TreeNode => {
   if (obj === null || obj === undefined) {
@@ -444,7 +461,7 @@ const objectToTree = (obj: unknown, name: string): TreeNode => {
 };
 
 export const treeFromObject = (obj: unknown, name = "root", options: TreeOptions = {}) => {
-  tree(objectToTree(obj, name), { showValues: true, ...options });
+  return tree(objectToTree(obj, name), { showValues: true, ...options });
 };
 
 const isNodeMatchingSearch = (node: TreeNode, searchTerm: string): boolean => {
@@ -457,13 +474,24 @@ const isNodeMatchingSearch = (node: TreeNode, searchTerm: string): boolean => {
 };
 
 export const treeSearch = (treeNode: TreeNode, searchTerm: string, options: TreeOptions = {}) => {
-  tree(treeNode, {
+  return tree(treeNode, {
     ...options,
     filter: (node) => isNodeMatchingSearch(node, searchTerm),
   });
 };
 
-export const treeStats = (treeNode: TreeNode) => {
+export interface TreeStatsResult {
+  nodeCount: number;
+  leafCount: number;
+  maxDepth: number;
+  valueCount: number;
+  output: string;
+}
+
+export const treeStats = (
+  treeNode: TreeNode,
+  options: { renderContext?: RenderContext } = {},
+): TreeStatsResult => {
   let nodeCount = 0;
   let leafCount = 0;
   let maxDepth = 0;
@@ -486,11 +514,15 @@ export const treeStats = (treeNode: TreeNode) => {
 
   traverse(treeNode);
 
-  const ctx2 = getCurrentContext();
-  const indent2 = " ".repeat(ctx2.offset);
-  console.log(`${indent2}${colors.gray("Total nodes:")} ${colors.yellow(nodeCount.toString())}`);
-  console.log(`${indent2}${colors.gray("Leaf nodes:")} ${colors.green(leafCount.toString())}`);
-  console.log(`${indent2}${colors.gray("Max depth:")} ${colors.blue(maxDepth.toString())}`);
-  console.log(`${indent2}${colors.gray("Nodes with values:")} ${colors.magenta(valueCount.toString())}`);
-  console.log(`${colors.gray("Tree name:")} ${colors.cyan(treeNode.name)}`);
+  const output = renderAndReturn(() => {
+    const ctx2 = options.renderContext ?? getCurrentContext();
+    const indent2 = " ".repeat(ctx2.offset);
+    write(`${indent2}${colors.gray("Total nodes:")} ${colors.yellow(nodeCount.toString())}`);
+    write(`${indent2}${colors.gray("Leaf nodes:")} ${colors.green(leafCount.toString())}`);
+    write(`${indent2}${colors.gray("Max depth:")} ${colors.blue(maxDepth.toString())}`);
+    write(`${indent2}${colors.gray("Nodes with values:")} ${colors.magenta(valueCount.toString())}`);
+    write(`${indent2}${colors.gray("Tree name:")} ${colors.cyan(treeNode.name)}`);
+  });
+
+  return { nodeCount, leafCount, maxDepth, valueCount, output };
 };

@@ -1,23 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, mock, Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
+import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { compare, deepDiff, diff, diffWords } from "./diff";
 
 describe("diff", () => {
-  let originalLog: typeof console.log;
-  let logSpy: Mock<(...args: unknown[]) => void>;
   let logOutput: string[];
 
   beforeEach(() => {
-    originalLog = console.log;
     logOutput = [];
-    logSpy = mock((...args) => {
-      logOutput.push(args.map(String).join(" "));
-    });
-    console.log = logSpy;
+    pushWriter((line) => logOutput.push(line));
   });
 
   afterEach(() => {
-    console.log = originalLog;
+    _resetWriterStack();
   });
 
   describe("deepDiff", () => {
@@ -112,7 +107,7 @@ describe("diff", () => {
 
       diff(obj1, obj2);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("DIFF OUTPUT");
       expect(output).toContain("modified");
@@ -154,7 +149,7 @@ describe("diff", () => {
     it("should detect word differences", () => {
       diffWords("hello world", "hello universe");
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("WORD DIFF");
       expect(output).toContain("-world");
@@ -209,7 +204,7 @@ describe("diff", () => {
 
       compare(left, right);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("Left");
       expect(output).toContain("Right");
@@ -256,7 +251,7 @@ describe("diff", () => {
       diff({}, []);
       diff([], {});
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
     });
 
     it("should handle Date objects", () => {
@@ -276,7 +271,7 @@ describe("diff", () => {
 
       diff(deep1, deep2);
 
-      expect(logSpy).toHaveBeenCalled();
+      expect(logOutput.length).toBeGreaterThan(0);
     });
 
     it("should handle circular references gracefully", () => {

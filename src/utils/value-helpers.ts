@@ -8,16 +8,7 @@ export type PrimitiveType =
   | "symbol"
   | "undefined";
 
-export type ComplexType =
-  | "array"
-  | "date"
-  | "error"
-  | "map"
-  | "object"
-  | "regexp"
-  | "set"
-  | "weakmap"
-  | "weakset";
+type ComplexType = "array" | "date" | "error" | "map" | "object" | "regexp" | "set" | "weakmap" | "weakset";
 
 export type DataType = ComplexType | PrimitiveType;
 
