@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
 import { _resetWriterStack, pushWriter } from "@/utils/writer";
+import { prettyPrint } from "./index";
 import { pp } from "./pp";
 
 describe("stream.pp", () => {
@@ -13,6 +14,10 @@ describe("stream.pp", () => {
 
   afterEach(() => {
     _resetWriterStack();
+  });
+
+  it("exports prettyPrint as a compatibility alias", () => {
+    expect(prettyPrint).toBe(pp);
   });
 
   it("prints simple primitive", () => {
@@ -42,5 +47,35 @@ describe("stream.pp", () => {
     s.text("Some text to print");
     const out = stripAnsi(logOutput[0] || "");
     expect(out).toContain("Some text to print");
+  });
+
+  it("throws stable errors for invalid options", () => {
+    expect(() => pp(null as never)).toThrow("picoprint stream.pp options must be an object");
+    expect(() => pp(new Date() as never)).toThrow("picoprint stream.pp options must be an object");
+    expect(() => pp({ maxDepth: -1 })).toThrow("picoprint maxDepth must be a non-negative integer");
+    expect(() => pp({ compact: "yes" as never })).toThrow("picoprint compact must be a boolean");
+    expect(logOutput).toHaveLength(0);
+  });
+
+  it("does not write more output after close", () => {
+    const s = pp();
+    s.text("before");
+    s.close();
+    const afterFirstClose = logOutput.length;
+
+    s.close();
+    s.text("after");
+    s.text(123 as never);
+    s.value({ after: true });
+
+    expect(logOutput).toHaveLength(afterFirstClose);
+    expect(logOutput.map(stripAnsi).join("\n")).not.toContain("after");
+  });
+
+  it("throws stable errors for invalid text arguments while open", () => {
+    const s = pp();
+
+    expect(() => s.text(123 as never)).toThrow("picoprint stream.pp text must be a string");
+    expect(logOutput).toHaveLength(0);
   });
 });

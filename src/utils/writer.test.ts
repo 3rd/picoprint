@@ -157,6 +157,42 @@ describe("writer", () => {
       console.log = orig;
       expect(spy).toHaveBeenCalledWith("after-error");
     });
+
+    it("throws a stable error for invalid callbacks", () => {
+      expect(() => format(12 as never)).toThrow("picoprint format callback must be a function");
+    });
+
+    it("should capture async callback output without printing", async () => {
+      const spy = mock();
+      const orig = console.log;
+      console.log = spy;
+
+      const result = await format(async () => {
+        write("before-await");
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        write("after-await");
+      });
+
+      console.log = orig;
+      expect(result).toBe("before-await\nafter-await");
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it("should treat thenables as async callback results", async () => {
+      const result = await format(() => {
+        write("before-thenable");
+        return {
+          then: (resolve: (value: unknown) => void) => {
+            write("inside-thenable");
+            resolve(undefined);
+          },
+        };
+      });
+
+      expect(result).toBe("before-thenable\ninside-thenable");
+    });
   });
 
   describe("renderAndReturn", () => {
@@ -201,7 +237,9 @@ describe("writer", () => {
     it("should capture lines from async callback", async () => {
       const { lines, result } = await captureLinesAsync(async () => {
         write("before-await");
-        await new Promise<void>((r) => setTimeout(r, 10));
+        await new Promise<void>((r) => {
+          setTimeout(r, 10);
+        });
         write("after-await");
         return 42;
       });
@@ -217,7 +255,9 @@ describe("writer", () => {
       try {
         await captureLinesAsync(async () => {
           write("inside");
-          await new Promise<void>((r) => setTimeout(r, 10));
+          await new Promise<void>((r) => {
+            setTimeout(r, 10);
+          });
           throw new Error("async-boom");
         });
       } catch (error) {
@@ -236,6 +276,7 @@ describe("writer", () => {
       const orig = console.log;
       console.log = spy;
 
+      // eslint-disable-next-line node/global-require -- import after the console.log spy is installed
       const p = require("@/index").default;
       const result = p.format(() => {
         p.box("hello from box");
@@ -246,6 +287,25 @@ describe("writer", () => {
       expect(spy).not.toHaveBeenCalled();
       expect(result).toContain("hello from box");
       expect(result).toContain("separator");
+    });
+
+    it("should capture async module output without printing", async () => {
+      const spy = mock();
+      const orig = console.log;
+      console.log = spy;
+
+      // eslint-disable-next-line node/global-require -- import after the console.log spy is installed
+      const p = require("@/index").default;
+      const result = await p.format(async () => {
+        await p.box(async () => {
+          p.log("async box");
+          return 42;
+        });
+      });
+
+      console.log = orig;
+      expect(spy).not.toHaveBeenCalled();
+      expect(result).toContain("async box");
     });
   });
 });

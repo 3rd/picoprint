@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { stripAnsi } from "@/utils/ansi";
+import { colors } from "@/utils/colors";
 import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { line, LineOptions } from "./line";
 
@@ -7,7 +9,7 @@ describe("line module", () => {
 
   beforeEach(() => {
     logOutput = [];
-    pushWriter((line) => logOutput.push(line));
+    pushWriter((text) => logOutput.push(text));
   });
 
   afterEach(() => {
@@ -111,6 +113,80 @@ describe("line module", () => {
 
       const output = logOutput[0];
       expect(output).toContain("Padded");
+    });
+
+    it("should color labels with labelColor", () => {
+      line({ label: "Colored", labelColor: (text) => `[${text}]` });
+
+      const output = logOutput[0];
+      expect(output).toContain("[Colored]");
+    });
+
+    it("should color labels with the titleColor compatibility alias", () => {
+      line({ label: "Colored", titleColor: (text) => `{${text}}` });
+
+      const output = logOutput[0];
+      expect(output).toContain("{Colored}");
+    });
+
+    it("should prefer labelColor over the titleColor compatibility alias", () => {
+      line({
+        label: "Colored",
+        labelColor: (text) => `[${text}]`,
+        titleColor: (text) => `{${text}}`,
+      });
+
+      const output = logOutput[0];
+      expect(output).toContain("[Colored]");
+      expect(output).not.toContain("{Colored}");
+    });
+
+    it("should throw stable errors for invalid color options", () => {
+      expect(() => line({ color: "cyan" as never })).toThrow(
+        "picoprint color must be a function",
+      );
+      expect(() => line({ color: colors.bgBlue as never })).toThrow(
+        "picoprint color must be a foreground color function, got a background color function",
+      );
+      expect(() => line({ label: "Label", labelColor: "cyan" as never })).toThrow(
+        "picoprint labelColor must be a function",
+      );
+      expect(() => line({ label: "Label", titleColor: "cyan" as never })).toThrow(
+        "picoprint titleColor must be a function",
+      );
+      expect(logOutput).toHaveLength(0);
+    });
+
+    it("should throw stable errors for invalid layout options", () => {
+      expect(() => line(12 as never)).toThrow("picoprint line options must be an object");
+      expect(() => line(null as never)).toThrow("picoprint line options must be an object");
+      expect(() => line(new Date() as never)).toThrow("picoprint line options must be an object");
+      expect(() => line({ width: "wide" as never })).toThrow(
+        "picoprint width must be a finite number",
+      );
+      expect(() => line({ label: 12 as never })).toThrow("picoprint label must be a string");
+      expect(() => line({ label: "Label", labelAlign: "middle" as never })).toThrow(
+        "picoprint labelAlign must be one of:",
+      );
+      expect(() => line({ label: "Label", padding: -1 })).toThrow(
+        "picoprint padding must be a non-negative integer",
+      );
+      expect(() => line({ label: "Label", separator: 12 as never })).toThrow(
+        "picoprint separator must be a string, false, or an object",
+      );
+      expect(() => line({ label: "Label", separator: new Date() as never })).toThrow(
+        "picoprint separator must be a string, false, or an object",
+      );
+      expect(() => line({ label: "Label", separator: { left: "<" } as never })).toThrow(
+        "picoprint separator.right must be a string",
+      );
+      expect(() => line({ label: "Label", separator: { right: ">" } as never })).toThrow(
+        "picoprint separator.left must be a string",
+      );
+      expect(() => line({ label: "Label", separator: { left: "<", right: 1 as never } })).toThrow(
+        "picoprint separator.right must be a string",
+      );
+      expect(logOutput).toHaveLength(0);
     });
 
     it("should handle labels with join characters for all styles", () => {
@@ -224,6 +300,13 @@ describe("line module", () => {
       expect(output).toContain("═");
     });
 
+    it("should draw section line without label", () => {
+      line.section();
+
+      const output = logOutput[0];
+      expect(output).toContain("═");
+    });
+
     it("should draw rounded line via helper", () => {
       line.rounded();
 
@@ -232,25 +315,30 @@ describe("line module", () => {
       expect(output).toContain("─");
     });
 
-    it("should draw gradient line (required colors)", () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      line.gradient({ start: String as any, end: String as any });
-
-      expect(logOutput).toHaveLength(1);
-      const output = logOutput[0];
-      expect(output).toBeDefined();
-      expect(output?.length).toBeGreaterThan(0);
-    });
-
-    it("should draw gradient with custom start/end colors", () => {
-      const wrapA = (s: string) => `[A]${s}`;
-      const wrapB = (s: string) => `[B]${s}`;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      line.gradient({ start: wrapA as any, end: wrapB as any });
+    it("should draw a full-width gradient line of line characters", () => {
+      line.gradient({ start: colors.red, end: colors.blue });
 
       expect(logOutput).toHaveLength(1);
       const output = logOutput[0] ?? "";
-      expect(output.length).toBeGreaterThan(0);
+      const visible = stripAnsi(output);
+      expect(visible.length).toBeGreaterThan(0);
+      expect([...visible].every((ch) => ch === "─")).toBe(true);
+    });
+
+    it("should throw stable errors for invalid gradient colors", () => {
+      expect(() => line.gradient(undefined as never)).toThrow(
+        "picoprint line.gradient options must be an object",
+      );
+      expect(() => line.gradient(new Date() as never)).toThrow(
+        "picoprint line.gradient options must be an object",
+      );
+      expect(() => line.gradient({ start: "red" as never, end: colors.blue })).toThrow(
+        "picoprint line.gradient start must be a function",
+      );
+      expect(() => line.gradient({ start: colors.red, end: colors.bgBlue as never })).toThrow(
+        "picoprint line.gradient end must be a foreground color function, got a background color function",
+      );
+      expect(logOutput).toHaveLength(0);
     });
   });
 
@@ -365,12 +453,5 @@ describe("line module", () => {
       expect(output).toBeDefined();
     });
 
-    it("should handle null options", () => {
-      line(null as unknown as LineOptions);
-
-      expect(logOutput).toHaveLength(1);
-      const output = logOutput[0];
-      expect(output).toBeDefined();
-    });
   });
 });

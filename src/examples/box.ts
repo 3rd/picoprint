@@ -103,7 +103,8 @@ printExample("Variants", [
   {
     title: "Panel with title",
     handler: () => {
-      p.box.panel("Panel Title", "Panel content with rounded corners and padding.", {
+      p.box.panel("Panel content with rounded corners and padding.", {
+        title: "Panel Title",
         borderColor: p.color.green,
       });
     },

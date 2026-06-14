@@ -33,24 +33,24 @@ printExample("Line Labels", [
 // Line label colors
 printExample("Line Label Colors", [
   { title: "Default color", handler: () => p.line({ label: "Default Foreground Color" }) },
-  { title: "Red label", handler: () => p.line({ label: "Red Label", titleColor: p.color.red }) },
-  { title: "Green label", handler: () => p.line({ label: "Green Label", titleColor: p.color.green }) },
+  { title: "Red label", handler: () => p.line({ label: "Red Label", labelColor: p.color.red }) },
+  { title: "Green label", handler: () => p.line({ label: "Green Label", labelColor: p.color.green }) },
   {
     title: "Blue label + yellow line",
-    handler: () => p.line({ label: "Blue Label", titleColor: p.color.blue, color: p.color.yellow }),
+    handler: () => p.line({ label: "Blue Label", labelColor: p.color.blue, color: p.color.yellow }),
   },
   {
     title: "Bright cyan label",
-    handler: () => p.line({ label: "Bright Cyan", titleColor: p.color.cyanBright }),
+    handler: () => p.line({ label: "Bright Cyan", labelColor: p.color.cyanBright }),
   },
   {
     title: "Bold magenta label",
     handler: () =>
-      p.line({ label: "Bold Magenta", titleColor: (text) => p.color.bold(p.color.magenta(text)) }),
+      p.line({ label: "Bold Magenta", labelColor: (text) => p.color.bold(p.color.magenta(text)) }),
   },
   {
     title: "Underlined label",
-    handler: () => p.line({ label: "Underlined", titleColor: p.color.underline }),
+    handler: () => p.line({ label: "Underlined", labelColor: p.color.underline }),
   },
 ]);
 

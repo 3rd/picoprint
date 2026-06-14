@@ -1,4 +1,4 @@
-temeletry = false
+telemetry = false
 
 [test]
 root = "src"

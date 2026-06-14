@@ -1,28 +1,83 @@
-import type { ForegroundColorFunction } from "@/utils/colors";
-import { stripAnsi } from "@/utils/ansi";
-import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
-import { renderAndReturn, write } from "@/utils/writer";
-import type { RenderContext } from "../context";
+import type { RenderOptions } from "../context";
+import { stringWidth } from "../../utils/ansi";
+import {
+  assertColorFunctionOption,
+  assertForegroundColorOption,
+  type ForegroundColorOption,
+} from "../../utils/colors";
+import { assertLineStyleOption, getLineStyle, type LineStyleName } from "../../utils/line-styles";
+import {
+  ALIGN_VALUES,
+  assertEnumOption,
+  assertFiniteNumberOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertStringArgument,
+  assertStringOption,
+  isPlainRecord,
+} from "../../utils/options";
+import { renderAndReturn, write } from "../../utils/writer";
 import * as c from "../colors";
 import { getConfig } from "../config";
-import { getCurrentContext } from "../context";
+import { resolveRenderContext } from "../context";
 
 export interface LineOptions {
+  offset?: RenderOptions["offset"];
   width?: number;
   style?: LineStyleName;
-  color?: ForegroundColorFunction;
+  color?: ForegroundColorOption;
   label?: string;
   labelAlign?: "center" | "left" | "right";
   padding?: number;
   separator?: { left: string; right: string } | false | string;
+  labelColor?: (text: string) => string;
+  /** @deprecated use labelColor */
   titleColor?: (text: string) => string;
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
 
 type LineStyle = LineStyleName;
+export type GradientLineOptions = {
+  offset?: RenderOptions["offset"];
+  renderContext?: RenderOptions["renderContext"];
+  start: ForegroundColorOption;
+  end: ForegroundColorOption;
+};
 
 const JOIN_CHARS_LENGTH = 2; // separator characters: "┤" + "├"
 const MIN_LINE_SEGMENT = 3;
+
+const validateLineOptions = (options: LineOptions) => {
+  assertFiniteNumberOption(options.width, "width");
+  assertLineStyleOption(options.style, "style");
+  assertForegroundColorOption(options.color, "color");
+  assertStringOption(options.label, "label");
+  assertEnumOption(options.labelAlign, "labelAlign", ALIGN_VALUES);
+  assertNonNegativeIntegerOption(options.padding, "padding");
+  assertColorFunctionOption(options.labelColor, "labelColor");
+  assertColorFunctionOption(options.titleColor, "titleColor");
+  if (options.separator !== undefined && options.separator !== false && typeof options.separator !== "string") {
+    if (!isPlainRecord(options.separator)) {
+      throw new TypeError("picoprint separator must be a string, false, or an object");
+    }
+    assertStringArgument(options.separator.left, "separator.left");
+    assertStringArgument(options.separator.right, "separator.right");
+  }
+};
+
+const assertGradientColorOption = (value: unknown, optionName: string) => {
+  if (value === undefined) throw new TypeError(`picoprint ${optionName} must be a function`);
+  assertForegroundColorOption(value, optionName);
+};
+
+const validateGradientLineOptions = (options: Partial<GradientLineOptions> | undefined) => {
+  if (options === undefined) {
+    throw new TypeError("picoprint line.gradient options must be an object");
+  }
+  assertPlainOptionsObject(options as unknown, "line.gradient options");
+  assertGradientColorOption(options.start, "line.gradient start");
+  assertGradientColorOption(options.end, "line.gradient end");
+};
 
 const buildSimpleLine = (width: number, style: LineStyle, colorFn: (str: string) => string) => {
   const lineChar = getLineStyle(style as LineStyleName).horizontal;
@@ -37,14 +92,14 @@ interface BuildLabeledLineParams {
   align: "center" | "left" | "right";
   padding: number;
   separator?: { left: string; right: string } | false | string;
-  titleColor?: (text: string) => string;
+  labelColor?: (text: string) => string;
 }
 
 const buildLabeledLine = (params: BuildLabeledLineParams) => {
-  const { width, style, colorFn, label, align, padding, separator, titleColor } = params;
+  const { width, style, colorFn, label, align, padding, separator, labelColor } = params;
   const lineChar = getLineStyle(style as LineStyleName).horizontal;
   const labelWithPadding = " ".repeat(padding) + label + " ".repeat(padding);
-  const labelLength = stripAnsi(labelWithPadding).length;
+  const labelLength = stringWidth(labelWithPadding);
 
   const totalLabelSection = labelLength + JOIN_CHARS_LENGTH;
   const remainingWidth = Math.max(0, width - totalLabelSection);
@@ -73,7 +128,7 @@ const buildLabeledLine = (params: BuildLabeledLineParams) => {
   const leftLine = lineChar.repeat(Math.max(0, leftWidth));
   const rightLine = lineChar.repeat(Math.max(0, rightWidth));
 
-  const displayLabel = titleColor ? titleColor(label) : label;
+  const displayLabel = labelColor ? labelColor(label) : label;
   const paddingStr = " ".repeat(padding);
   const paddedLabel = `${paddingStr}${label}${paddingStr}`;
   const paddedDisplayLabel = `${paddingStr}${displayLabel}${paddingStr}`;
@@ -102,7 +157,7 @@ const buildLabeledLine = (params: BuildLabeledLineParams) => {
   const middlePart = paddedLabel;
   const displayMiddlePart = paddedDisplayLabel;
 
-  const totalLength = stripAnsi(leftPart).length + stripAnsi(middlePart).length + stripAnsi(rightPart).length;
+  const totalLength = stringWidth(leftPart) + stringWidth(middlePart) + stringWidth(rightPart);
 
   if (totalLength > width) {
     const excess = totalLength - width;
@@ -115,9 +170,13 @@ const buildLabeledLine = (params: BuildLabeledLineParams) => {
 
 export const line = (options: LineOptions | string = {}) =>
   renderAndReturn(() => {
+    if (options !== undefined && typeof options !== "string") {
+      assertPlainOptionsObject(options as unknown, "line options");
+    }
     const opts: LineOptions = typeof options === "string" ? { label: options } : options || {};
+    validateLineOptions(opts);
 
-    const ctx = opts.renderContext ?? getCurrentContext();
+    const ctx = resolveRenderContext(opts);
     const width = opts.width ?? ctx.getWidth();
     const style = opts.style ?? getConfig().defaults?.style ?? "single";
     const align = opts.labelAlign ?? "center";
@@ -137,7 +196,7 @@ export const line = (options: LineOptions | string = {}) =>
             align,
             padding,
             separator: opts.separator,
-            titleColor: opts.titleColor,
+            labelColor: opts.labelColor ?? opts.titleColor,
           }),
       );
     } else {
@@ -181,17 +240,14 @@ line.light = (label?: string) => {
   return line({ style: "light", color: c.dim, label });
 };
 
-line.section = (label: string) => {
+line.section = (label?: string) => {
   return line({ style: "double", color: c.cyan, label, padding: 2 });
 };
 
-line.gradient = (options: {
-  renderContext?: RenderContext;
-  start: ForegroundColorFunction;
-  end: ForegroundColorFunction;
-}) =>
+line.gradient = (options: GradientLineOptions) =>
   renderAndReturn(() => {
-    const ctx = options.renderContext ?? getCurrentContext();
+    validateGradientLineOptions(options);
+    const ctx = resolveRenderContext(options);
     const width = ctx.getWidth();
     const indent = " ".repeat(ctx.offset);
     const lineChar = getLineStyle("single").horizontal;

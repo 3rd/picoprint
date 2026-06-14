@@ -1,6 +1,4 @@
 /* eslint-disable no-control-regex */
-import type { ColorFunction } from "./colors";
-
 // make background persistent across SGR resets in the string
 const makePersistentBg = (bgFn: (s: string) => string) => {
   const sample = bgFn(" ");
@@ -29,7 +27,7 @@ const makePersistentBg = (bgFn: (s: string) => string) => {
   };
 };
 
-export const getBackgroundOrIdentity = (fn?: ColorFunction) => {
+export const getBackgroundOrIdentity = (fn?: (s: string) => string) => {
   if (!fn) return (s: string) => s;
   return makePersistentBg(fn);
 };

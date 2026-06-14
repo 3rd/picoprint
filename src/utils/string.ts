@@ -1,12 +1,10 @@
-/* eslint-disable no-control-regex */
-import { COLOR_START_REGEX, RESET_COLOR, stripAnsi } from "./ansi";
+import { COLOR_START_REGEX, graphemeWidth, RESET_COLOR, splitGraphemes, stringWidth, stripAnsi } from "./ansi";
 
 const QUOTE_WIDTH = 2;
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const applyTextWrapping = (str: string, maxWidth: number, indentStr: string) => {
-  const stripped = stripAnsi(str);
-  if (stripped.length <= maxWidth) return [str];
+  if (stringWidth(str) <= maxWidth) return [str];
 
   const lines: string[] = [];
   const colorMatch = COLOR_START_REGEX.exec(str);
@@ -16,6 +14,7 @@ export const applyTextWrapping = (str: string, maxWidth: number, indentStr: stri
 
   // non-quoted text, wrap while preserving embedded ANSI codes and active color state
   if (!isQuotedString) {
+    // eslint-disable-next-line no-control-regex
     const SGR = /\u001b\[([\d;]*)m/g;
 
     let i = 0;
@@ -42,18 +41,17 @@ export const applyTextWrapping = (str: string, maxWidth: number, indentStr: stri
       const m = SGR.exec(str);
 
       const nextEsc = m ? m.index : str.length;
-      // plain segment up to next SGR
       if (nextEsc > i) {
         const segment = str.slice(i, nextEsc);
-        for (const element of segment) {
-          const ch = element ?? "";
+        for (const ch of splitGraphemes(segment)) {
           if (ch === "\n") {
-            // hard line break inside the string
             flushLine();
             continue;
           }
+          const w = graphemeWidth(ch);
+          if (visible > 0 && visible + w > maxWidth) flushLine();
           currentLine += ch;
-          visible++;
+          visible += w;
           if (visible >= maxWidth) {
             flushLine();
           }
@@ -61,7 +59,6 @@ export const applyTextWrapping = (str: string, maxWidth: number, indentStr: stri
         i = nextEsc;
       }
 
-      // SGR sequence and update active state
       if (m && m[0]) {
         const seq = m[0];
         const params = m[1] ?? "";
@@ -79,14 +76,12 @@ export const applyTextWrapping = (str: string, maxWidth: number, indentStr: stri
         } else if (first === "49") {
           activeBg = null;
         } else if (
-          // foreground
           first === "38" ||
           (Number(first) >= 30 && Number(first) <= 37) ||
           (Number(first) >= 90 && Number(first) <= 97)
         ) {
           activeFg = seq;
         } else if (
-          // background
           first === "48" ||
           (Number(first) >= 40 && Number(first) <= 47) ||
           (Number(first) >= 100 && Number(first) <= 107)
@@ -98,7 +93,6 @@ export const applyTextWrapping = (str: string, maxWidth: number, indentStr: stri
       }
     }
 
-    // push remaining line if any content accumulated
     if (currentLine.length > 0) {
       lines.push(currentLine + RESET_COLOR);
     }
@@ -107,20 +101,27 @@ export const applyTextWrapping = (str: string, maxWidth: number, indentStr: stri
   }
 
   const innerContent = content.slice(1, -1);
-  let currentPos = 0;
+  let chunk = "";
+  let chunkWidth = 0;
   let isFirst = true;
 
-  while (currentPos < innerContent.length) {
-    const remainingWidth = isFirst ? maxWidth - QUOTE_WIDTH : maxWidth;
-    const chunk = innerContent.slice(currentPos, currentPos + remainingWidth);
-    const isLastChunk = currentPos + remainingWidth >= innerContent.length;
+  const pushChunk = (isLastChunk: boolean) => {
     const quoteSuffix = isLastChunk ? '"' : "";
     const prefix = isFirst ? `${startColor}"` : `${indentStr}${startColor}`;
-
     lines.push(`${prefix}${chunk}${quoteSuffix}${RESET_COLOR}`);
-    currentPos += remainingWidth;
     isFirst = false;
+    chunk = "";
+    chunkWidth = 0;
+  };
+
+  for (const ch of splitGraphemes(innerContent)) {
+    const w = graphemeWidth(ch);
+    const budget = isFirst ? maxWidth - QUOTE_WIDTH : maxWidth;
+    if (chunkWidth > 0 && chunkWidth + w > budget) pushChunk(false);
+    chunk += ch;
+    chunkWidth += w;
   }
+  if (chunk.length > 0 || lines.length === 0) pushChunk(true);
 
   return lines;
 };

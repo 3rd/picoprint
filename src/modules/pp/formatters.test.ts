@@ -210,7 +210,7 @@ describe("pp/formatters", () => {
 
     it("should format empty objects", () => {
       const result = formatCompactObject({});
-      expect(result).toBe("{  }");
+      expect(result).toBe("{}");
     });
 
     it("should handle special key names", () => {

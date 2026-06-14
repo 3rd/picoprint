@@ -1,5 +1,5 @@
-import { renderALS } from "@/utils/render-als";
-import { getTerminalWidth } from "@/utils/terminal";
+import { renderALS } from "../../utils/render-als";
+import { getTerminalWidth } from "../../utils/terminal";
 
 export interface RenderContext {
   readonly offset: number;
@@ -8,16 +8,47 @@ export interface RenderContext {
   withOffset: (additionalOffset: number) => RenderContext;
 }
 
-export const createContext = (offset = 0): RenderContext => {
-  if (offset < 0) {
-    throw new Error("RenderContext offset cannot be negative");
+export interface RenderOptions {
+  offset?: number;
+  renderContext?: RenderContext;
+}
+
+function assertNonNegativeFiniteNumber(value: unknown, optionName: string): asserts value is number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new RangeError(`picoprint ${optionName} must be a non-negative finite number`);
   }
+}
+
+function assertRenderContext(value: unknown): asserts value is RenderContext {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    typeof (value as Partial<RenderContext>).getWidth !== "function" ||
+    typeof (value as Partial<RenderContext>).indent !== "function" ||
+    typeof (value as Partial<RenderContext>).withOffset !== "function"
+  ) {
+    throw new TypeError("picoprint renderContext must be a RenderContext");
+  }
+  assertNonNegativeFiniteNumber((value as Partial<RenderContext>).offset, "renderContext.offset");
+}
+
+const normalizeOffset = (value: number) => Math.floor(value);
+
+export const createContext = (offset = 0): RenderContext => {
+  assertNonNegativeFiniteNumber(offset, "offset");
+  const normalizedOffset = normalizeOffset(offset);
 
   return {
-    offset,
-    getWidth: () => Math.max(1, getTerminalWidth() - offset),
-    indent: (amount = 2) => createContext(offset + amount),
-    withOffset: (additionalOffset: number) => createContext(offset + additionalOffset),
+    offset: normalizedOffset,
+    getWidth: () => Math.max(1, getTerminalWidth() - normalizedOffset),
+    indent: (amount = 2) => {
+      assertNonNegativeFiniteNumber(amount, "indent amount");
+      return createContext(normalizedOffset + normalizeOffset(amount));
+    },
+    withOffset: (additionalOffset: number) => {
+      assertNonNegativeFiniteNumber(additionalOffset, "offset");
+      return createContext(normalizedOffset + normalizeOffset(additionalOffset));
+    },
   };
 };
 
@@ -43,34 +74,46 @@ export const getCurrentContext = (): RenderContext => {
   return defaultContext;
 };
 
-export const getEffectiveWidth = () => {
-  const current = getCurrentContext();
-  return current.getWidth();
-};
-
-export const getEffectiveOffset = () => {
-  const current = getCurrentContext();
-  return current.offset;
-};
-
-const toNonNegativeInt = (n: unknown) => {
-  if (typeof n !== "number" || !Number.isFinite(n)) return 0;
-  const i = Math.floor(n);
-  return i > 0 ? i : 0;
-};
-
-export const increaseIndent = (amount?: number) => {
-  const step = toNonNegativeInt(amount ?? 2);
-  if (step === 0) return;
-  const base = getCurrentContext();
+const indentContext = (base: RenderContext, step: number) => {
   const next = createContext(base.offset + step);
   Object.defineProperty(next, "getWidth", {
     value: () => Math.max(1, base.getWidth() - step),
     writable: false,
   });
-  globalIndentStack.push(next);
+  return next;
+};
+
+export const resolveRenderContext = (options: RenderOptions = {}) => {
+  const base = options.renderContext === undefined ? getCurrentContext() : options.renderContext;
+  assertRenderContext(base);
+  if (options.offset === undefined) return base;
+  assertNonNegativeFiniteNumber(options.offset, "offset");
+  const offset = normalizeOffset(options.offset);
+  return offset === 0 ? base : indentContext(base, offset);
+};
+
+export const increaseIndent = (amount = 2) => {
+  assertNonNegativeFiniteNumber(amount, "indent amount");
+  const step = normalizeOffset(amount);
+  if (step === 0) return;
+  const store = renderALS.getStore();
+  if (store) {
+    store.indentStack ??= [];
+    store.indentStack.push(store.renderContext);
+    store.renderContext = indentContext(store.renderContext, step);
+    return;
+  }
+  const base = getCurrentContext();
+  globalIndentStack.push(indentContext(base, step));
 };
 
 export const decreaseIndent = () => {
+  const store = renderALS.getStore();
+  const previous = store?.indentStack?.pop();
+  if (store && previous) {
+    store.renderContext = previous;
+    return;
+  }
+  if (store) return;
   globalIndentStack.pop();
 };

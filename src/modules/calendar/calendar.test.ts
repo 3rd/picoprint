@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { colors } from "@/utils/colors";
 import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import type { CalendarEvent } from "./types";
-import { colors } from "../colors";
 import { calendar } from "./calendar";
 
 // eslint-disable-next-line no-control-regex
@@ -65,6 +65,48 @@ describe("calendar", () => {
     const result = calendar(new Date(2025, AUGUST, 15), { firstDayOfWeek: 0 });
     const stripped = stripAnsi(result);
     expect(stripped).toContain("Su Mo Tu We Th Fr Sa");
+  });
+
+  it("should accept options as the first argument", () => {
+    const result = calendar({ firstDayOfWeek: 0, showFooter: false });
+    const stripped = stripAnsi(result);
+
+    expect(stripped).toContain("Su Mo Tu We Th Fr Sa");
+  });
+
+  it("throws stable errors for invalid calendar options", () => {
+    expect(() => calendar("2025-08-15" as unknown as Date)).toThrow(
+      "picoprint calendar date must be a valid Date",
+    );
+    expect(() => calendar(new Date(Number.NaN))).toThrow("picoprint calendar date must be a valid Date");
+    expect(() => calendar(new Date(2025, AUGUST, 15), null as never)).toThrow(
+      "picoprint calendar options must be an object",
+    );
+    expect(() => calendar(new Date(2025, AUGUST, 15), new Date() as never)).toThrow(
+      "picoprint calendar options must be an object",
+    );
+    expect(() => calendar(/bad/ as never)).toThrow("picoprint calendar options must be an object");
+    expect(() => calendar(new Date(2025, AUGUST, 15), { firstDayOfWeek: 7 as never })).toThrow(
+      "picoprint firstDayOfWeek must be an integer from 0 to 6",
+    );
+    expect(() => calendar(new Date(2025, AUGUST, 15), { events: "bad" as never })).toThrow(
+      "picoprint events must be an array",
+    );
+    expect(() => calendar(new Date(2025, AUGUST, 15), { showWeekNumbers: "yes" as never })).toThrow(
+      "picoprint showWeekNumbers must be a boolean",
+    );
+    expect(() => calendar(new Date(2025, AUGUST, 15), { highlightToday: "yes" as never })).toThrow(
+      "picoprint highlightToday must be a boolean",
+    );
+    expect(() => calendar(new Date(2025, AUGUST, 15), { highlightWeekends: "yes" as never })).toThrow(
+      "picoprint highlightWeekends must be a boolean",
+    );
+    expect(() => calendar(new Date(2025, AUGUST, 15), { showHeader: "yes" as never })).toThrow(
+      "picoprint showHeader must be a boolean",
+    );
+    expect(() => calendar(new Date(2025, AUGUST, 15), { showFooter: "yes" as never })).toThrow(
+      "picoprint showFooter must be a boolean",
+    );
   });
 
   it("should show week numbers when enabled", () => {
@@ -197,6 +239,44 @@ describe("calendar", () => {
       for (const event of events) {
         expect(result).toContain(event.label);
       }
+    });
+
+    it("throws stable errors for invalid events", () => {
+      expect(() =>
+        calendar(new Date(2025, AUGUST, 1), {
+          events: [[] as unknown as CalendarEvent],
+        }),
+      ).toThrow("picoprint events[0] must be an object");
+
+      expect(() =>
+        calendar(new Date(2025, AUGUST, 1), {
+          events: [new Date() as unknown as CalendarEvent],
+        }),
+      ).toThrow("picoprint events[0] must be an object");
+
+      expect(() =>
+        calendar(new Date(2025, AUGUST, 1), {
+          events: [{ date: "2025-08-01" as unknown as Date, label: "bad" }],
+        }),
+      ).toThrow("picoprint events[0].date must be a valid Date");
+
+      expect(() =>
+        calendar(new Date(2025, AUGUST, 1), {
+          events: [{ date: new Date(2025, AUGUST, 1), label: 12 as unknown as string }],
+        }),
+      ).toThrow("picoprint events[0].label must be a string");
+
+      expect(() =>
+        calendar(new Date(2025, AUGUST, 1), {
+          events: [{ date: new Date(2025, AUGUST, 1), label: "bad", color: "green" as never }],
+        }),
+      ).toThrow("picoprint events[0].color must be a function");
+
+      expect(() =>
+        calendar(new Date(2025, AUGUST, 1), {
+          events: [{ date: new Date(2025, AUGUST, 1), label: "bad", priority: "urgent" as never }],
+        }),
+      ).toThrow("picoprint events[0].priority must be one of:");
     });
 
     it("should handle multiple events on same day", () => {

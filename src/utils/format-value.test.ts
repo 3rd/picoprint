@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { stripAnsi } from "./ansi";
-import { formatValueColored } from "./format-value";
+import { formatValueColored, safeStringify } from "./format-value";
 
 describe("formatValueColored", () => {
   const strip = stripAnsi;
@@ -50,5 +50,27 @@ describe("formatValueColored", () => {
 
   it("formats unknown types via String()", () => {
     expect(strip(formatValueColored(Symbol("x")))).toBe("Symbol(x)");
+  });
+});
+
+describe("safeStringify", () => {
+  it("does not mark shared non-circular references as circular", () => {
+    const shared = { x: 1 };
+
+    expect(safeStringify({ a: shared, b: shared })).toBe(`{
+  "a": {
+    "x": 1
+  },
+  "b": {
+    "x": 1
+  }
+}`);
+  });
+
+  it("marks true circular references as circular", () => {
+    const value: Record<string, unknown> = { x: 1 };
+    value.self = value;
+
+    expect(safeStringify(value)).toContain('"self": "[Circular]"');
   });
 });

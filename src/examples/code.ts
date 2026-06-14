@@ -17,23 +17,23 @@ printExample("Language Highlighting", [
   { title: "sql", handler: () => p.code(sqlCode, "sql") },
 ]);
 
-// Window styles
-printExample("Window Styles", [
+// Frame styles
+printExample("Frame Styles", [
   {
     title: "single (default)",
-    handler: () => p.code(tsCode, { language: "typescript", window: true, title: "single" }),
+    handler: () => p.code(tsCode, { language: "typescript", frame: true, title: "single" }),
   },
   {
     title: "double",
-    handler: () => p.code(tsCode, { language: "typescript", window: "double", title: "double" }),
+    handler: () => p.code(tsCode, { language: "typescript", frame: "double", title: "double" }),
   },
   {
     title: "rounded",
-    handler: () => p.code(tsCode, { language: "typescript", window: "rounded", title: "rounded" }),
+    handler: () => p.code(tsCode, { language: "typescript", frame: "rounded", title: "rounded" }),
   },
   {
     title: "thick",
-    handler: () => p.code(tsCode, { language: "typescript", window: "thick", title: "thick" }),
+    handler: () => p.code(tsCode, { language: "typescript", frame: "thick", title: "thick" }),
   },
 ]);
 
@@ -42,17 +42,17 @@ printExample("Title Alignment", [
   {
     title: "left",
     handler: () =>
-      p.code(tsCode, { language: "typescript", window: true, title: "left aligned", titleAlign: "left" }),
+      p.code(tsCode, { language: "typescript", frame: true, title: "left aligned", titleAlign: "left" }),
   },
   {
     title: "center",
     handler: () =>
-      p.code(tsCode, { language: "typescript", window: true, title: "center aligned", titleAlign: "center" }),
+      p.code(tsCode, { language: "typescript", frame: true, title: "center aligned", titleAlign: "center" }),
   },
   {
     title: "right",
     handler: () =>
-      p.code(tsCode, { language: "typescript", window: true, title: "right aligned", titleAlign: "right" }),
+      p.code(tsCode, { language: "typescript", frame: true, title: "right aligned", titleAlign: "right" }),
   },
 ]);
 
@@ -60,16 +60,16 @@ printExample("Title Alignment", [
 printExample("Line Numbers", [
   { title: "plain", handler: () => p.code(tsCode, { language: "typescript", lineNumbers: true }) },
   {
-    title: "in window",
+    title: "in frame",
     handler: () =>
-      p.code(tsCode, { language: "typescript", window: true, title: "line numbers", lineNumbers: true }),
+      p.code(tsCode, { language: "typescript", frame: true, title: "line numbers", lineNumbers: true }),
   },
   {
-    title: "rounded window",
+    title: "rounded frame",
     handler: () =>
       p.code(tsCode, {
         language: "typescript",
-        window: "rounded",
+        frame: "rounded",
         title: "rounded + numbers",
         lineNumbers: true,
       }),
@@ -80,14 +80,14 @@ printExample("Line Numbers", [
 printExample("Padding & Width", [
   {
     title: "padding",
-    handler: () => p.code(tsCode, { language: "typescript", window: true, title: "padding: 2", padding: 2 }),
+    handler: () => p.code(tsCode, { language: "typescript", frame: true, title: "padding: 2", padding: 2 }),
   },
   {
     title: "paddingX only",
     handler: () =>
       p.code(tsCode, {
         language: "typescript",
-        window: true,
+        frame: true,
         title: "paddingX: 4",
         paddingX: 4,
         paddingY: 0,
@@ -98,7 +98,7 @@ printExample("Padding & Width", [
     handler: () =>
       p.code(tsCode, {
         language: "typescript",
-        window: true,
+        frame: true,
         title: "paddingY: 2",
         paddingX: 0,
         paddingY: 2,
@@ -106,7 +106,7 @@ printExample("Padding & Width", [
   },
   {
     title: "custom width",
-    handler: () => p.code(tsCode, { language: "typescript", window: true, title: "width: 40", width: 40 }),
+    handler: () => p.code(tsCode, { language: "typescript", frame: true, title: "width: 40", width: 40 }),
   },
 ]);
 
@@ -115,14 +115,14 @@ printExample("Colors", [
   {
     title: "background",
     handler: () =>
-      p.code(tsCode, { language: "typescript", window: true, title: "bg red", background: p.color.bgRed }),
+      p.code(tsCode, { language: "typescript", frame: true, title: "bg red", background: p.color.bgRed }),
   },
   {
     title: "border color",
     handler: () =>
       p.code(tsCode, {
         language: "typescript",
-        window: "rounded",
+        frame: "rounded",
         title: "border green",
         borderColor: p.color.green,
       }),
@@ -132,7 +132,7 @@ printExample("Colors", [
     handler: () =>
       p.code(tsCode, {
         language: "typescript",
-        window: "double",
+        frame: "double",
         title: "title yellow",
         titleColor: p.color.yellow,
         borderColor: p.color.gray,
@@ -142,13 +142,13 @@ printExample("Colors", [
 
 // Edge cases
 printExample("Edge Cases", [
-  { title: "empty block", handler: () => p.code("", { window: true, title: "empty" }) },
+  { title: "empty block", handler: () => p.code("", { frame: true, title: "empty" }) },
   {
     title: "very long line",
     handler: () =>
       p.code(
         `const longString = "This is a very long string that might exceed the typical terminal width and demonstrate how the code module handles line wrapping or overflow situations in different terminal environments";`,
-        { language: "typescript", window: true, title: "long line", lineNumbers: true },
+        { language: "typescript", frame: true, title: "long line", lineNumbers: true },
       ),
   },
   {
@@ -158,7 +158,7 @@ printExample("Edge Cases", [
         `const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$/;
 const emoji = "🚀 Launch! 🎉";
 const unicode = "Hello → 世界 → мир";`,
-        { language: "typescript", window: "rounded", title: "special" },
+        { language: "typescript", frame: "rounded", title: "special" },
       ),
   },
 ]);

@@ -1,8 +1,8 @@
-import * as colors from "@/modules/colors";
-import { keyColor } from "@/modules/colors";
-import { stripAnsi } from "@/utils/ansi";
-import { formatRelativeTime } from "@/utils/time";
-import { getType, isSimpleValue } from "@/utils/value-helpers";
+import { stringWidth } from "../../utils/ansi";
+import { getTypeColor, keyColor } from "../../utils/colors";
+import { formatRelativeTime } from "../../utils/time";
+import { getType, isSimpleValue } from "../../utils/value-helpers";
+import * as colors from "../colors";
 
 const MAX_COMPACT_ARRAY_LENGTH = 5;
 const MAX_COMPACT_STRING_LENGTH = 30;
@@ -12,56 +12,42 @@ const TREE_COLORS = [colors.dim, colors.gray, colors.dim, colors.gray] as const;
 
 export const formatPrimitive = (value: unknown) => {
   const type = getType(value);
+  const color = getTypeColor(type);
 
   switch (type) {
     case "string": {
-      const raw = String(value);
-      // turn new lines into \n
-      const escaped = raw.replace(/\r\n/g, "\n").replace(/\n/g, "\\n").replace(/\r/g, "\\n");
-      return colors.green(`"${escaped}"`);
-    }
-    case "number": {
-      return colors.yellow(String(value));
-    }
-    case "boolean": {
-      return colors.magenta(String(value));
-    }
-    case "null": {
-      return colors.gray("null");
-    }
-    case "undefined": {
-      return colors.gray("undefined");
-    }
-    case "symbol": {
-      return colors.magenta(String(value));
+      const escaped = String(value).replace(/\r\n/g, "\n").replace(/\n/g, "\\n").replace(/\r/g, "\\n");
+      return color(`"${escaped}"`);
     }
     case "bigint": {
-      return colors.yellow(`${value}n`);
+      return color(`${value}n`);
     }
     case "function": {
       if (typeof value === "function") {
-        return colors.blueBright(`[Function: ${value.name || "anonymous"}]`);
+        return color(`[Function: ${value.name || "anonymous"}]`);
       }
       return String(value);
     }
     case "date": {
       if (value instanceof Date) {
         const relativeText = colors.dim(`(${formatRelativeTime(value)})`);
-        return `${colors.cyan(value.toISOString())} ${relativeText}`;
-      }
-      return String(value);
-    }
-    case "regexp": {
-      if (value instanceof RegExp) {
-        return colors.magenta(value.toString());
+        return `${color(value.toISOString())} ${relativeText}`;
       }
       return String(value);
     }
     case "error": {
       if (value instanceof Error) {
-        return colors.red(`[Error: ${value.message}]`);
+        return color(`[Error: ${value.message}]`);
       }
       return String(value);
+    }
+    case "number":
+    case "boolean":
+    case "null":
+    case "undefined":
+    case "symbol":
+    case "regexp": {
+      return color(String(value));
     }
     default: {
       return String(value);
@@ -69,59 +55,85 @@ export const formatPrimitive = (value: unknown) => {
   }
 };
 
+export const toEntries = (value: object): [string, unknown][] => {
+  if (value instanceof Map) {
+    return [...value.entries()].map(([key, val]) => [String(key), val] as [string, unknown]);
+  }
+  return Object.entries(value);
+};
+
+export const toItems = (value: unknown): unknown[] | null => {
+  if (Array.isArray(value)) return value;
+  if (value instanceof Set) return [...value];
+  return null;
+};
+
 export const formatCompactArray = (arr: unknown[]) => {
   return `[${arr.map(formatPrimitive).join(", ")}]`;
 };
 
-export const formatCompactObject = (obj: object) => {
-  const entries = Object.entries(obj)
+const formatCompactEntries = (entries: [string, unknown][]) => {
+  if (entries.length === 0) return "{}";
+  const body = entries
     .map(([key, val]) => {
       const formattedKey = VALID_IDENTIFIER_REGEX.test(key) ? key : `"${key}"`;
       return `${keyColor(formattedKey)}: ${formatPrimitive(val)}`;
     })
     .join(", ");
-  return `{ ${entries} }`;
+  return `{ ${body} }`;
+};
+
+export const formatCompactObject = (obj: object) => formatCompactEntries(toEntries(obj));
+
+// single compact rendering for any container (array, set, map, plain object)
+export const formatCompactValue = (value: object): string => {
+  if (Array.isArray(value)) return formatCompactArray(value);
+  if (value instanceof Set) {
+    const label = colors.cyan(`Set(${value.size})`);
+    return `${label} ${formatCompactArray([...value])}`;
+  }
+  if (value instanceof Map) {
+    const label = colors.cyan(`Map(${value.size})`);
+    return `${label} ${formatCompactEntries(toEntries(value))}`;
+  }
+  return formatCompactObject(value);
 };
 
 export const canBeCompacted = (value: unknown, seen: WeakSet<object>, availableWidth?: number) => {
   if (isSimpleValue(value)) return true;
 
-  // array
-  if (Array.isArray(value)) {
-    if (value.length > MAX_COMPACT_ARRAY_LENGTH) return false;
+  const items = toItems(value);
+  if (items) {
+    if (items.length > MAX_COMPACT_ARRAY_LENGTH) return false;
 
-    const allValuesAreSimple = value.every((item) => {
+    const allValuesAreSimple = items.every((item) => {
       if (!isSimpleValue(item)) return false;
       if (typeof item === "string" && item.length > MAX_COMPACT_STRING_LENGTH) return false;
       return true;
     });
     if (!allValuesAreSimple) return false;
 
-    if (availableWidth !== undefined) {
-      const formatted = formatCompactArray(value);
-      if (stripAnsi(formatted).length > availableWidth) return false;
+    if (availableWidth !== undefined && stringWidth(formatCompactValue(value as object)) > availableWidth) {
+      return false;
     }
     return true;
   }
 
-  // object
   if (typeof value === "object" && value !== null) {
     if (seen.has(value)) return false;
 
-    const keys = Object.keys(value);
-    if (keys.length > MAX_COMPACT_OBJECT_KEYS) return false;
+    const entries = toEntries(value);
+    if (entries.length > MAX_COMPACT_OBJECT_KEYS) return false;
 
-    const allValuesAreSimple = keys.every((key) => {
-      const val = (value as Record<string, unknown>)[key];
+    const allValuesAreSimple = entries.every(([, val]) => {
       if (!isSimpleValue(val)) return false;
       if (typeof val === "string" && val.length > MAX_COMPACT_STRING_LENGTH) return false;
       return true;
     });
     if (!allValuesAreSimple) return false;
 
-    if (availableWidth !== undefined) {
-      const formatted = formatCompactObject(value);
-      if (stripAnsi(formatted).length > availableWidth) return false;
+    if (availableWidth !== undefined && stringWidth(formatCompactValue(value)) > availableWidth) {
+      return false;
     }
     return true;
   }

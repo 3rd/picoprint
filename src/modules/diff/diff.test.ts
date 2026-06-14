@@ -31,6 +31,7 @@ describe("diff", () => {
       expect(diffs[0]).toEqual({
         type: "added",
         path: ["b"],
+        pathSegments: [{ kind: "key", key: "b" }],
         key: "b",
         value2: 2,
       });
@@ -45,6 +46,7 @@ describe("diff", () => {
       expect(diffs[0]).toEqual({
         type: "deleted",
         path: ["b"],
+        pathSegments: [{ kind: "key", key: "b" }],
         key: "b",
         value1: 2,
       });
@@ -59,6 +61,7 @@ describe("diff", () => {
       expect(diffs[0]).toEqual({
         type: "modified",
         path: ["a"],
+        pathSegments: [{ kind: "key", key: "a" }],
         key: "a",
         value1: 1,
         value2: 2,
@@ -84,10 +87,47 @@ describe("diff", () => {
       expect(diffs[0]).toEqual({
         type: "modified",
         path: ["[2]"],
+        pathSegments: [{ kind: "index", index: 2 }],
         key: "[2]",
         value1: 3,
         value2: 4,
       });
+    });
+
+    it("should detect changed built-in object values", () => {
+      expect(deepDiff(new Date("2024-01-01"), new Date("2024-01-02"))).toEqual([
+        {
+          type: "modified",
+          path: [],
+          pathSegments: [],
+          key: "root",
+          value1: new Date("2024-01-01"),
+          value2: new Date("2024-01-02"),
+        },
+      ]);
+      expect(deepDiff(new Map([["a", 1]]), new Map([["a", 2]]))).toEqual([
+        {
+          type: "modified",
+          path: ["[0]", "[1]"],
+          pathSegments: [
+            { kind: "index", index: 0 },
+            { kind: "index", index: 1 },
+          ],
+          key: "[1]",
+          value1: 1,
+          value2: 2,
+        },
+      ]);
+      expect(deepDiff(new Set([1]), new Set([2]))).toEqual([
+        {
+          type: "modified",
+          path: ["[0]"],
+          pathSegments: [{ kind: "index", index: 0 }],
+          key: "[0]",
+          value1: 1,
+          value2: 2,
+        },
+      ]);
     });
 
     it("should detect type changes", () => {
@@ -97,6 +137,51 @@ describe("diff", () => {
 
       expect(diffs).toHaveLength(1);
       expect(diffs[0]?.type).toBe("modified");
+    });
+
+    it("should not report matching self-references as differences", () => {
+      interface CircularObj {
+        name: string;
+        self?: CircularObj;
+      }
+      const obj1: CircularObj = { name: "same" };
+      obj1.self = obj1;
+
+      const obj2: CircularObj = { name: "same" };
+      obj2.self = obj2;
+
+      expect(deepDiff(obj1, obj2)).toEqual([]);
+    });
+
+    it("should report when a self-reference changes to another value", () => {
+      interface CircularObj {
+        name: string;
+        self?: CircularObj;
+      }
+      const obj1: CircularObj = { name: "same" };
+      obj1.self = obj1;
+      const obj2 = { name: "same", self: 42 };
+
+      const diffs = deepDiff(obj1, obj2);
+
+      expect(diffs).toHaveLength(1);
+      const [diffNode] = diffs;
+      if (diffNode?.type !== "modified") throw new Error("expected a modified diff node");
+      expect(diffNode.path).toEqual(["self"]);
+      expect(diffNode.pathSegments).toEqual([{ kind: "key", key: "self" }]);
+      expect(diffNode.key).toBe("self");
+      expect(diffNode.value1).toBe(obj1);
+      expect(diffNode.value2).toBe(42);
+    });
+
+    it("should expose non-lossy path segments alongside display paths", () => {
+      const objectKeyDiff = deepDiff({ "[0]": "old" }, { "[0]": "new" });
+      expect(objectKeyDiff[0]?.path).toEqual(["[0]"]);
+      expect(objectKeyDiff[0]?.pathSegments).toEqual([{ kind: "key", key: "[0]" }]);
+
+      const arrayIndexDiff = deepDiff(["old"], ["new"]);
+      expect(arrayIndexDiff[0]?.path).toEqual(["[0]"]);
+      expect(arrayIndexDiff[0]?.pathSegments).toEqual([{ kind: "index", index: 0 }]);
     });
   });
 
@@ -142,6 +227,43 @@ describe("diff", () => {
 
       const output = logOutput.join("\n");
       expect(output).toContain("...");
+    });
+
+    it("should show Map entry changes in visual diffs", () => {
+      diff(new Map([["a", 1]]), new Map([["a", 2]]));
+
+      const output = stripAnsi(logOutput.join("\n"));
+      expect(output).toContain("~ [0]:");
+      expect(output).toContain("~ [1]:");
+      expect(output).toContain("- 1");
+      expect(output).toContain("+ 2");
+      expect(output).not.toContain("[Object]");
+    });
+
+    it("should show Set entry changes in visual diffs", () => {
+      diff(new Set([1]), new Set([2]));
+
+      const output = stripAnsi(logOutput.join("\n"));
+      expect(output).toContain("~ [0]:");
+      expect(output).toContain("- 1");
+      expect(output).toContain("+ 2");
+      expect(output).not.toContain("[Object]");
+    });
+
+    it("should throw stable errors for invalid diff options", () => {
+      expect(() => diff({ a: 1 }, { a: 2 }, 12 as never)).toThrow("picoprint diff options must be an object");
+      expect(() => diff({ a: 1 }, { a: 2 }, null as never)).toThrow("picoprint diff options must be an object");
+      expect(() => diff({ a: 1 }, { a: 2 }, new Date() as never)).toThrow("picoprint diff options must be an object");
+      expect(() => diff({ a: 1 }, { a: 2 }, { showUnchanged: "yes" as never })).toThrow(
+        "picoprint showUnchanged must be a boolean",
+      );
+      expect(() => diff({ a: 1 }, { a: 2 }, { compact: "yes" as never })).toThrow(
+        "picoprint compact must be a boolean",
+      );
+      expect(() => diff({ a: 1 }, { a: 2 }, { maxDepth: -1 })).toThrow(
+        "picoprint maxDepth must be a non-negative integer",
+      );
+      expect(logOutput).toHaveLength(0);
     });
   });
 
@@ -189,11 +311,61 @@ describe("diff", () => {
       expect(output).toContain("+world");
     });
 
+    it("should keep shifted unchanged words unchanged", () => {
+      diffWords("hello world", "hello beautiful world");
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("+beautiful");
+      expect(output).toContain("world");
+      expect(output).not.toContain("-world");
+      expect(output).not.toContain("+world");
+    });
+
     it("should handle deleted words", () => {
       diffWords("hello world", "hello");
 
       const output = logOutput.join("\n");
       expect(output).toContain("-world");
+    });
+
+    it("should indent word diffs with offset", () => {
+      diffWords("hello world", "hello universe", { offset: 3 });
+
+      expect(logOutput.length).toBeGreaterThan(0);
+      for (const line of logOutput.filter(Boolean)) expect(line).toMatch(/^ {3}/);
+    });
+
+    it("should diff large unrelated word inputs without requiring an unbounded LCS matrix", () => {
+      const left = Array.from({ length: 600 }, (_, index) => `left-${index}`);
+      const right = Array.from({ length: 600 }, (_, index) => `right-${index}`);
+
+      diffWords(left.join(" "), right.join(" "));
+
+      const output = stripAnsi(logOutput.join("\n"));
+      expect(output).toContain("-left-0");
+      expect(output).toContain("+right-0");
+      expect(output).toContain("-left-599");
+      expect(output).toContain("+right-599");
+    });
+
+    it("should throw stable errors for invalid word diff options", () => {
+      expect(() => diffWords(undefined as never, "two")).toThrow(
+        "picoprint diff.words first argument must be a string",
+      );
+      expect(() => diffWords(1 as never, "two")).toThrow("picoprint diff.words first argument must be a string");
+      expect(() => diffWords("one", undefined as never)).toThrow(
+        "picoprint diff.words second argument must be a string",
+      );
+      expect(() => diffWords("one", 2 as never)).toThrow("picoprint diff.words second argument must be a string");
+      expect(() => diffWords("A", "a", 12 as never)).toThrow("picoprint diff.words options must be an object");
+      expect(() => diffWords("A", "a", /bad/ as never)).toThrow("picoprint diff.words options must be an object");
+      expect(() => diffWords("A", "a", { ignoreCase: "yes" as never })).toThrow(
+        "picoprint ignoreCase must be a boolean",
+      );
+      expect(() => diffWords("a b", "ab", { ignoreWhitespace: "yes" as never })).toThrow(
+        "picoprint ignoreWhitespace must be a boolean",
+      );
+      expect(logOutput).toHaveLength(0);
     });
   });
 
@@ -217,6 +389,22 @@ describe("diff", () => {
       const output = logOutput.join("\n");
       expect(output).toContain("Before");
       expect(output).toContain("After");
+    });
+
+    it("should throw stable errors for invalid compare options", () => {
+      expect(() => compare({ a: 1 }, { a: 2 }, 12 as never)).toThrow(
+        "picoprint diff.compare options must be an object",
+      );
+      expect(() => compare({ a: 1 }, { a: 2 }, new Date() as never)).toThrow(
+        "picoprint diff.compare options must be an object",
+      );
+      expect(() => compare({ a: 1 }, { a: 2 }, { labels: ["Only one"] as never })).toThrow(
+        "picoprint labels must be a tuple of 2 strings",
+      );
+      expect(() => compare({ a: 1 }, { a: 2 }, { labels: ["Left", 12] as never })).toThrow(
+        "picoprint labels must be a tuple of 2 strings",
+      );
+      expect(logOutput).toHaveLength(0);
     });
 
     it("should handle arrays", () => {
@@ -286,6 +474,40 @@ describe("diff", () => {
       obj2.self = obj2;
 
       expect(() => diff(obj1, obj2)).not.toThrow();
+    });
+  });
+
+  describe("shared references and unsafe values", () => {
+    it("should diff shared (non-circular) sub-object references", () => {
+      const shared = { x: 1 };
+      const nodes = deepDiff({ a: shared, b: shared }, { a: { x: 1 }, b: { x: 99 } });
+
+      expect(nodes).toHaveLength(1);
+      expect(nodes[0]?.type).toBe("modified");
+      expect(nodes[0]?.path).toEqual(["b", "x"]);
+      expect(nodes[0]?.key).toBe("x");
+    });
+
+    it("should not throw when compare receives BigInt values", () => {
+      expect(() => compare({ n: 10n }, { n: 20n })).not.toThrow();
+    });
+
+    it("should not throw when compare receives circular structures", () => {
+      const left: Record<string, unknown> = { a: 1 };
+      left.self = left;
+
+      expect(() => compare(left, { a: 2 })).not.toThrow();
+    });
+
+    it("should not throw when compare receives undefined", () => {
+      expect(() => compare(undefined, { a: 1 })).not.toThrow();
+    });
+
+    it("should render shared non-circular references in compare output", () => {
+      const shared = { x: 1 };
+      compare({ a: shared, b: shared }, { a: shared, b: shared });
+
+      expect(logOutput.join("\n")).not.toContain("[Circular]");
     });
   });
 });

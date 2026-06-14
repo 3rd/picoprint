@@ -1,29 +1,59 @@
-import type { BackgroundColorFunction, ForegroundColorFunction } from "@/utils/colors";
-import { stripAnsi } from "@/utils/ansi";
-import { applyBgToSegments, getBackgroundOrIdentity } from "@/utils/background";
-import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
-import { renderALS } from "@/utils/render-als";
-import { applyTextWrapping } from "@/utils/string";
-import { renderAndReturn, write } from "@/utils/writer";
-import type { RenderContext } from "../context";
+import type { RenderContext, RenderOptions } from "../context";
+import { stringWidth } from "../../utils/ansi";
+import { applyBgToSegments, getBackgroundOrIdentity } from "../../utils/background";
+import {
+  assertBackgroundColorOption,
+  assertColorFunctionOption,
+  assertForegroundColorOption,
+  type BackgroundColorOption,
+  type ForegroundColorOption,
+} from "../../utils/colors";
+import { assertLineStyleOption, getLineStyle, type LineStyleName } from "../../utils/line-styles";
+import {
+  ALIGN_VALUES,
+  assertEnumOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertStringOption,
+} from "../../utils/options";
+import { renderALS } from "../../utils/render-als";
+import { applyTextWrapping } from "../../utils/string";
+import { isPromiseLike, renderAndReturn, write } from "../../utils/writer";
 import { dim } from "../colors";
 import { getConfig } from "../config";
-import { createContext, getCurrentContext } from "../context";
-import { BORDER_WIDTH, buildTopBorder } from "./_shared";
+import { createContext, resolveRenderContext } from "../context";
+import { assertBoxWidth, BORDER_WIDTH, buildTopBorder, clampBoxWidth } from "./_shared";
 
 export interface BoxOptions {
+  offset?: RenderOptions["offset"];
   width?: number;
   style?: LineStyleName;
-  borderColor?: ForegroundColorFunction;
-  background?: BackgroundColorFunction;
+  borderColor?: ForegroundColorOption;
+  background?: BackgroundColorOption;
   padding?: number;
   paddingX?: number;
   paddingY?: number;
   title?: string;
   titleAlign?: "center" | "left" | "right";
   titleColor?: (text: string) => string;
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
+
+type BoxContent = (() => unknown) | string;
+type BoxCallbackResult<T> = T extends PromiseLike<unknown> ? Promise<string> : string;
+
+const validateBoxOptions = (options: BoxOptions) => {
+  assertNonNegativeIntegerOption(options.width, "width");
+  assertLineStyleOption(options.style, "style");
+  assertForegroundColorOption(options.borderColor, "borderColor");
+  assertBackgroundColorOption(options.background, "background");
+  assertNonNegativeIntegerOption(options.padding, "padding");
+  assertNonNegativeIntegerOption(options.paddingX, "paddingX");
+  assertNonNegativeIntegerOption(options.paddingY, "paddingY");
+  assertStringOption(options.title, "title");
+  assertEnumOption(options.titleAlign, "titleAlign", ALIGN_VALUES);
+  assertColorFunctionOption(options.titleColor, "titleColor");
+};
 
 const createBoxContext = (maxWidth: number) => {
   const innerContext = createContext(0).withOffset(0);
@@ -101,12 +131,12 @@ const renderBox = (params: RenderBoxParams) => {
   }
 
   for (const line of wrappedLines) {
-    const totalPadding = Math.max(0, innerWidth - stripAnsi(line).length - paddingX * 2);
+    const totalPadding = Math.max(0, innerWidth - stringWidth(line) - paddingX * 2);
     const leftPad = bgFn(" ".repeat(paddingX));
     const body = hasBg ? applyBgToSegments(line, bgFn) : line;
     const rightPad = bgFn(" ".repeat(paddingX + totalPadding));
     let bgContent = leftPad + body + rightPad;
-    const visibleLen = stripAnsi(bgContent).length;
+    const visibleLen = stringWidth(bgContent);
     if (visibleLen < innerWidth) {
       bgContent = bgContent + bgFn(" ".repeat(innerWidth - visibleLen));
     }
@@ -127,18 +157,26 @@ const renderBox = (params: RenderBoxParams) => {
 };
 
 export function box(content: string, options?: BoxOptions): string;
-export function box<T>(content: () => T, options?: BoxOptions): T;
-export function box<T>(content: () => Promise<T>, options?: BoxOptions): Promise<T>;
-export function box<T = void>(
-  content: (() => Promise<T>) | (() => T) | string,
-  options: BoxOptions = {},
-): Promise<T> | T | string {
-  const ctx = options.renderContext ?? getCurrentContext();
-  const width = options.width ?? ctx.getWidth();
+export function box<T>(content: () => T, options?: BoxOptions): BoxCallbackResult<T>;
+export function box(content: BoxContent, options: BoxOptions = {}): Promise<string> | string {
+  return renderBoxContent(content, options);
+}
+
+const renderBoxContent = (content: BoxContent, options: BoxOptions = {}): Promise<string> | string => {
+  if (typeof content !== "string" && typeof content !== "function") {
+    throw new TypeError("picoprint box content must be a string or function");
+  }
+  assertPlainOptionsObject(options as unknown, "box options");
+  validateBoxOptions(options);
+  const ctx = resolveRenderContext(options);
+  const explicitWidth = options.width !== undefined;
+  let width = options.width ?? ctx.getWidth();
   const styleName = options.style ?? getConfig().defaults?.style ?? "single";
   const paddingX = options.paddingX ?? options.padding ?? 0;
   const paddingY = options.paddingY ?? options.padding ?? 0;
   const titleAlign = options.titleAlign ?? "center";
+  if (explicitWidth) assertBoxWidth(width, paddingX);
+  else width = clampBoxWidth(width, paddingX);
 
   const boxStyle = getLineStyle(styleName);
   const colorFn = options.borderColor ?? dim;
@@ -167,21 +205,26 @@ export function box<T = void>(
 
     const boxCtx = createBoxContext(maxContentWidth);
     const buffer: string[] = [];
-    const store = { writer: (line: string) => buffer.push(line), renderContext: boxCtx };
-
-    const finalize = <V>(value: V): V => {
-      const wrappedLines = wrapLines(buffer, maxContentWidth);
-      renderBox({ wrappedLines, ...renderParams });
-      return value;
+    const store = {
+      writer: (line: string) => buffer.push(line),
+      renderContext: boxCtx,
     };
 
-    const rawResult = renderALS.run(store, () => (content as () => Promise<T> | T)());
+    const finalize = (): string => {
+      const wrappedLines = wrapLines(buffer, maxContentWidth);
+      return renderAndReturn(() => renderBox({ wrappedLines, ...renderParams }));
+    };
 
-    if (rawResult instanceof Promise) {
-      return rawResult.then(finalize) as Promise<T>;
+    const rawResult = renderALS.run(store, () => {
+      const result = content();
+      return isPromiseLike(result) ? Promise.resolve(result) : result;
+    });
+
+    if (isPromiseLike(rawResult)) {
+      return Promise.resolve(rawResult).then(finalize);
     }
 
-    return finalize(rawResult);
+    return finalize();
   }
 
   return renderAndReturn(() => {
@@ -205,18 +248,30 @@ export function box<T = void>(
       titleColor: options.titleColor,
     });
   });
-}
+};
 
+function boxPanel(content: string, options?: Partial<BoxOptions>): string;
+function boxPanel<T>(content: () => T, options?: Partial<BoxOptions>): BoxCallbackResult<T>;
 function boxPanel(title: string, content: string, options?: Partial<BoxOptions>): string;
-function boxPanel<T>(title: string, content: () => T, options?: Partial<BoxOptions>): T;
-function boxPanel<T>(title: string, content: () => Promise<T>, options?: Partial<BoxOptions>): Promise<T>;
-function boxPanel<T>(
-  title: string,
-  content: (() => Promise<T>) | (() => T) | string,
-  options: Partial<BoxOptions> = {},
-): Promise<T> | T | string {
-  const opts: BoxOptions = { ...options, title, style: "rounded", padding: 1 };
-  if (typeof content === "string") return box(content, opts);
-  return box(content as () => T, opts);
+function boxPanel<T>(title: string, content: () => T, options?: Partial<BoxOptions>): BoxCallbackResult<T>;
+function boxPanel(
+  first: BoxContent,
+  second?: BoxContent | Partial<BoxOptions>,
+  third: Partial<BoxOptions> = {},
+): Promise<string> | string {
+  if (typeof second === "string" || typeof second === "function") {
+    assertPlainOptionsObject(third, "box.panel options");
+    const opts: BoxOptions = {
+      style: "rounded",
+      padding: 1,
+      ...third,
+      title: String(first),
+    };
+    return renderBoxContent(second, opts);
+  }
+
+  assertPlainOptionsObject(second, "box.panel options");
+  const opts: BoxOptions = { style: "rounded", padding: 1, ...second };
+  return renderBoxContent(first, opts);
 }
 box.panel = boxPanel;

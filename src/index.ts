@@ -1,21 +1,9 @@
-export * from "./modules/colors";
-export * from "./modules/pp";
-export * from "./modules/box";
-export * from "./modules/calendar";
-export * from "./modules/line";
-export * from "./modules/code";
-export * from "./modules/table";
-export * from "./modules/tree";
-export * from "./modules/trace";
-export * from "./modules/diff";
-export * from "./modules/context";
-export * from "./modules/config";
 import { box } from "./modules/box";
 import { calendar } from "./modules/calendar";
 import { code } from "./modules/code";
 import * as colors from "./modules/colors";
 import { configure, getConfig, resetConfig } from "./modules/config";
-import { createContext, decreaseIndent, getCurrentContext, increaseIndent } from "./modules/context";
+import { createContext, decreaseIndent, increaseIndent } from "./modules/context";
 import { compare, deepDiff, diff, diffWords } from "./modules/diff";
 import { line } from "./modules/line";
 import { prettyPrint } from "./modules/pp";
@@ -23,8 +11,18 @@ import * as stream from "./modules/stream";
 import { compareInTable, table } from "./modules/table";
 import { callStack, stack, trace, error as traceError } from "./modules/trace";
 import { directory, tree, treeFromObject, treeMulti, treeSearch, treeStats } from "./modules/tree";
-import { toColoredInlineString } from "./utils/log-format";
-import { format, write } from "./utils/writer";
+import { toColoredInlineString } from "./utils/format-value";
+import { format as captureFormat, writeLog } from "./utils/writer";
+
+export type { BoxOptions } from "./modules/box";
+export type { CalendarEvent, CalendarOptions } from "./modules/calendar";
+export type { CodeOptions } from "./modules/code";
+export type { ForegroundColorName } from "./modules/colors";
+export type { ConfigureOptions, PicocprintConfig } from "./modules/config";
+export type { RenderContext, RenderOptions } from "./modules/context";
+export type { CompareOptions, DiffNode, DiffOptions, DiffPathSegment, DiffWordsOptions } from "./modules/diff";
+export type { GradientLineOptions, LineOptions } from "./modules/line";
+export type { PrettyPrintOptions } from "./modules/pp";
 export type {
   BoxStream,
   BoxStreamOptions,
@@ -35,6 +33,25 @@ export type {
   TreeStream,
   TreeStreamOptions,
 } from "./modules/stream";
+export type { TableCompareOptions, TableData, TableOptions } from "./modules/table";
+export type { StackOptions, TraceOptions } from "./modules/trace";
+export type {
+  DirectoryEntry,
+  DirectoryOptions,
+  TreeNode,
+  TreeOptions,
+  TreeStatsResult,
+  TreeStyleName,
+} from "./modules/tree";
+export type {
+  BackgroundColorFunction,
+  BackgroundColorOption,
+  ColorFunction,
+  ColorOptionFunction,
+  ForegroundColorFunction,
+  ForegroundColorOption,
+} from "./utils/colors";
+export type { LineStyleName } from "./utils/line-styles";
 
 const extendedTable = Object.assign(table, {
   compare: compareInTable,
@@ -50,6 +67,7 @@ const extendedTree = Object.assign(tree, {
 
 const extendedDiff = Object.assign(diff, {
   words: diffWords,
+  nodes: deepDiff,
   deep: deepDiff,
   compare,
 });
@@ -60,15 +78,12 @@ const extendedTrace = Object.assign(trace, {
   callStack,
 });
 
-const ppLog = (...args: unknown[]) => {
-  const ctx = getCurrentContext();
-  const indent = " ".repeat(ctx.offset);
-  const parts = args.map(toColoredInlineString);
-  const combined = parts.join(" ");
-  const lines = combined.split(/\r?\n/);
-  for (const l of lines) write(indent + l);
-  return combined;
-};
+const ppLog = (...args: unknown[]) => writeLog(args, toColoredInlineString);
+
+type FormatResult<T> = T extends PromiseLike<unknown> ? Promise<string> : string;
+type FormatFunction = <T>(fn: () => T) => FormatResult<T>;
+
+const ppFormat: FormatFunction = captureFormat;
 
 const pp = Object.assign((...args: Parameters<typeof prettyPrint>) => prettyPrint(...args), {
   log: ppLog,
@@ -80,13 +95,13 @@ const pp = Object.assign((...args: Parameters<typeof prettyPrint>) => prettyPrin
   code,
   table: extendedTable,
   tree: extendedTree,
-  error: traceError,
   diff: extendedDiff,
   trace: extendedTrace,
-  color: colors,
+  error: traceError,
   c: colors,
+  color: colors,
   stream,
-  format,
+  format: ppFormat,
   configure,
   getConfig,
   resetConfig,
@@ -95,6 +110,6 @@ const pp = Object.assign((...args: Parameters<typeof prettyPrint>) => prettyPrin
 
 export type PP = typeof pp;
 
-export { colors as c, colors as color };
+export { colors as c };
 
 export default pp;

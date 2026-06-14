@@ -22,9 +22,21 @@ describe("trace", () => {
       expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
 
-      // plain header with callsite stack
       expect(output).toContain("Error: Test error");
       expect(output).toContain("─");
+    });
+
+    it("should use the supplied Error stack", () => {
+      const err = new Error("Original error");
+      err.stack = `Error: Original error
+    at originalFrame (original-file.js:12:34)`;
+
+      trace(err);
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("originalFrame");
+      expect(output).toContain("original-file.js:12:34");
+      expect(output).not.toContain("modules/trace/trace.ts");
     });
 
     it("should handle string input by printing callsite stack", () => {
@@ -59,6 +71,24 @@ describe("trace", () => {
       expect(output).toMatch(/trace\.test\.ts/);
     });
 
+    it("should filter frames with a global regex consistently", () => {
+      const filter = /important\.js/g;
+      filter.lastIndex = 4;
+      const stackString = `Error: Test
+    at first (important.js:1:1)
+    at second (important.js:2:2)
+    at third (important.js:3:3)`;
+
+      trace(stackString, { filter });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("first");
+      expect(output).toContain("second");
+      expect(output).toContain("third");
+      expect(filter.lastIndex).toBe(4);
+    });
+
+
     it("should handle malformed stack lines", () => {
       const malformedStack = `Error: Test
     at valid (file.js:1:1)
@@ -71,6 +101,26 @@ describe("trace", () => {
       expect(output).toContain("valid");
       expect(output).toContain("anotherValid");
     });
+
+    it("throws stable errors for invalid trace options", () => {
+      expect(() => trace("Test", null as never)).toThrow("picoprint trace options must be an object");
+      expect(() => trace("Test", new Date() as never)).toThrow(
+        "picoprint trace options must be an object",
+      );
+      expect(() => trace("Test", { maxFrames: -1 })).toThrow(
+        "picoprint maxFrames must be a non-negative integer",
+      );
+      expect(() => trace("Test", { filter: "trace" as never })).toThrow(
+        "picoprint filter must be a RegExp",
+      );
+      expect(() => trace("Test", { header: "box" as never })).toThrow(
+        "picoprint header must be one of:",
+      );
+      expect(() => trace("Test", { footer: "yes" as never })).toThrow(
+        "picoprint footer must be a boolean",
+      );
+      expect(logOutput).toHaveLength(0);
+    });
   });
 
   describe("stack", () => {
@@ -80,7 +130,6 @@ describe("trace", () => {
 
       expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
-      expect(output).toContain("📍");
       expect(output).toContain("Stack test");
     });
 
@@ -103,7 +152,14 @@ describe("trace", () => {
       expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
       expect(output).toContain("Stack Trace");
-      expect(output).toContain("📍");
+    });
+
+    it("accepts options as the first argument for the current stack", () => {
+      stack({ maxFrames: 0 });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("Stack Trace");
+      expect(output).not.toContain("#1");
     });
 
     it("should respect maxFrames option", () => {
@@ -167,6 +223,49 @@ describe("trace", () => {
       expect(output).toContain("functionB");
       expect(output).toContain("functionC");
     });
+
+    it("should highlight with a global regex without mutating it", () => {
+      const highlight = /important\.js/g;
+      highlight.lastIndex = 4;
+      const stackString = `Error: Test
+    at functionA (important.js:10:5)
+    at functionB (important.js:20:10)`;
+
+      stack(stackString, { highlight });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("functionA");
+      expect(output).toContain("functionB");
+      expect(highlight.lastIndex).toBe(4);
+    });
+
+    it("throws stable errors for invalid stack options", () => {
+      expect(() => stack(123 as never)).toThrow(
+        "picoprint trace.stack argument must be an Error, stack string, or options object",
+      );
+      expect(() => stack(new Date() as never)).toThrow(
+        "picoprint trace.stack argument must be an Error, stack string, or options object",
+      );
+      expect(() => stack("Error: Test", null as never)).toThrow(
+        "picoprint trace.stack options must be an object",
+      );
+      expect(() => stack("Error: Test", new Date() as never)).toThrow(
+        "picoprint trace.stack options must be an object",
+      );
+      expect(() => stack("Error: Test", { maxFrames: -1 })).toThrow(
+        "picoprint maxFrames must be a non-negative integer",
+      );
+      expect(() => stack("Error: Test", { showFiles: "maybe" as never })).toThrow(
+        "picoprint showFiles must be one of:",
+      );
+      expect(() => stack("Error: Test", { skipFrames: -1 })).toThrow(
+        "picoprint skipFrames must be a non-negative integer",
+      );
+      expect(() => stack("Error: Test", { highlight: "important" as never })).toThrow(
+        "picoprint highlight must be a RegExp",
+      );
+      expect(logOutput).toHaveLength(0);
+    });
   });
 
   describe("error", () => {
@@ -176,7 +275,7 @@ describe("trace", () => {
 
       expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
-      expect(output).toContain("💥 Error:");
+      expect(output).toContain("Error:");
       expect(output).toContain("Something failed");
     });
 
@@ -199,25 +298,53 @@ describe("trace", () => {
       expect(output).toContain("Cause: Error: Root cause");
     });
 
+    it("should show falsy error causes if present", () => {
+      const causes = [0, false, "", null] as const;
+
+      for (const cause of causes) {
+        logOutput = [];
+        error(new Error("Main error", { cause }));
+
+        const output = logOutput.join("\n");
+        expect(output).toContain("Main error");
+        expect(output).toContain(`Cause: ${String(cause)}`);
+      }
+    });
+
     it("should include stack trace if available", () => {
       const err = new Error("With stack");
       error(err);
 
       const output = logOutput.join("\n");
 
-      // only the emoji header is printed by error(); trace suppresses its own header
-      expect(output).toContain("💥 Error:");
+      // only the rich header is printed by error(); trace suppresses its own header
+      expect(output).toContain("Error:");
       expect(output).toContain("With stack");
 
       // and a numbered stack frame
       expect(output).toContain("#1");
     });
 
+    it("should use the supplied Error stack", () => {
+      const err = new Error("Original error");
+      err.stack = `Error: Original error
+    at originalFrame (original-file.js:12:34)`;
+
+      error(err);
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("Error:");
+      expect(output).toContain("Original error");
+      expect(output).toContain("originalFrame");
+      expect(output).toContain("original-file.js:12:34");
+      expect(output).not.toContain("modules/trace/trace.ts");
+    });
+
     it("should handle non-Error objects", () => {
       error("String error");
 
       const output = logOutput.join("\n");
-      expect(output).toContain("💥 Error:");
+      expect(output).toContain("Error:");
       expect(output).toContain("String error");
     });
 
@@ -229,6 +356,13 @@ describe("trace", () => {
       expect(output).toContain("null");
       expect(output).toContain("undefined");
     });
+
+    it("throws stable errors for invalid error options", () => {
+      expect(() => error("Test", new Date() as never)).toThrow(
+        "picoprint trace options must be an object",
+      );
+      expect(logOutput).toHaveLength(0);
+    });
   });
 
   describe("callStack", () => {
@@ -237,7 +371,7 @@ describe("trace", () => {
 
       expect(logOutput.length).toBeGreaterThan(0);
       const output = logOutput.join("\n");
-      expect(output).toContain("📞 Call Stack");
+      expect(output).toContain("Call Stack");
       expect(output).toContain("─");
     });
 
@@ -248,6 +382,46 @@ describe("trace", () => {
 
       expect(logOutput.join("\n")).toContain("#1");
       expect(logOutput.join("\n")).toContain("at");
+    });
+
+    it("should support stack-style options", () => {
+      const globalHighlight = /trace\.test/g;
+
+      callStack({ maxFrames: 1, showFiles: "hide", highlight: globalHighlight });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("Call Stack");
+      expect(output).toContain("#1");
+      expect(output).not.toContain("#2");
+      expect(output).not.toContain("     at ");
+      expect(globalHighlight.lastIndex).toBe(0);
+    });
+
+    it("should skip call stack frames", () => {
+      callStack({ maxFrames: 1, skipFrames: 1 });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("Call Stack");
+      expect(output).toContain("#1");
+    });
+
+    it("throws stable errors for invalid callStack options", () => {
+      expect(() => callStack(12 as never)).toThrow(
+        "picoprint trace.callStack options must be an object",
+      );
+      expect(() => callStack(new Date() as never)).toThrow(
+        "picoprint trace.callStack options must be an object",
+      );
+      expect(() => callStack({ maxFrames: -1 })).toThrow(
+        "picoprint maxFrames must be a non-negative integer",
+      );
+      expect(() => callStack({ showFiles: "no" as never })).toThrow(
+        "picoprint showFiles must be one of: hide, show",
+      );
+      expect(() => callStack({ highlight: "trace" as never })).toThrow(
+        "picoprint highlight must be a RegExp",
+      );
+      expect(logOutput).toHaveLength(0);
     });
   });
 

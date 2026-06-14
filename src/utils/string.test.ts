@@ -71,4 +71,10 @@ describe("applyTextWrapping", () => {
     const lastLine = result[result.length - 1];
     expect(lastLine).toContain('"');
   });
+
+  it("should wrap composed emoji by grapheme cluster", () => {
+    const result = applyTextWrapping("👍🏽👍🏽👍🏽", 4, "");
+
+    expect(result).toEqual(["👍🏽👍🏽\u001b[0m", "👍🏽\u001b[0m"]);
+  });
 });

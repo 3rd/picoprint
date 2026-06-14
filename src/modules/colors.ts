@@ -6,7 +6,6 @@ import {
   color256,
   colors,
   createColorPalette,
-  getTypeColor,
   gradient,
   gradientHex,
   gradientRgb,
@@ -15,9 +14,8 @@ import {
   rainbow,
   rgb,
 } from "../utils/colors";
-import { toInlineLogString } from "../utils/log-format";
-import { write } from "../utils/writer";
-import { getCurrentContext } from "./context";
+import { toInlineLogString } from "../utils/format-value";
+import { writeLog } from "../utils/writer";
 
 export type ForegroundColorName = {
   [K in keyof typeof colors]: (typeof colors)[K] extends ForegroundColorFunction ? K : never;
@@ -54,23 +52,13 @@ const makeChainFn = <K extends Kind>(chain: BaseFn[], kind: K): Chainable<K> => 
     get(target, prop, receiver) {
       if (prop === "__kind") return kind;
       if (prop === "log") {
-        return (...args: unknown[]) => {
-          const ctx = getCurrentContext();
-          const indent = " ".repeat(ctx.offset);
-          const pieces = args.map((a) => {
-            const text = toInlineLogString(a);
-            // style each line
-            const styled = text
+        return (...args: unknown[]) =>
+          writeLog(args, (arg) =>
+            toInlineLogString(arg)
               .split(/\r?\n/)
               .map((line) => target(line))
-              .join("\n");
-            return styled;
-          });
-          const combined = pieces.join(" ");
-          const lines = combined.split(/\r?\n/);
-          for (const line of lines) write(indent + line);
-          return combined;
-        };
+              .join("\n"),
+          );
       }
       if (prop in target) return Reflect.get(target, prop, receiver);
 
@@ -141,13 +129,11 @@ export const bgCyanBright = chain(colors.bgCyanBright);
 export const bgWhiteBright = chain(colors.bgWhiteBright);
 
 export { createColorPalette as palette };
-export { getTypeColor as typeColor };
 export {
   bgColor256,
   bgHex,
   bgRgb,
   color256,
-  colors,
   gradient,
   gradientHex,
   gradientRgb,
@@ -156,6 +142,3 @@ export {
   rainbow,
   rgb,
 };
-
-// key color for formatters
-export const keyColor: ForegroundColorFunction = colors.white;

@@ -1,14 +1,15 @@
-import * as colors from "@/modules/colors";
-import { keyColor } from "@/modules/colors";
-import { stripAnsi } from "@/utils/ansi";
-import { applyTextWrapping } from "@/utils/string";
-import { isSimpleValue } from "@/utils/value-helpers";
+import { stringWidth } from "../../utils/ansi";
+import { keyColor } from "../../utils/colors";
+import { applyTextWrapping } from "../../utils/string";
+import { isSimpleValue } from "../../utils/value-helpers";
+import * as colors from "../colors";
 import {
   canBeCompacted,
-  formatCompactArray,
-  formatCompactObject,
+  formatCompactValue,
   formatPrimitive,
   getTreeColor,
+  toEntries,
+  toItems,
 } from "./formatters";
 import { FormatContext } from "./types";
 
@@ -23,59 +24,64 @@ const shouldBeCompactInline = (value: unknown, ctx: FormatContext) => {
   if (!ctx.compact) return false;
   if (isSimpleValue(value)) return true;
 
-  if (Array.isArray(value)) {
-    if (value.length > MAX_INLINE_ARRAY_LENGTH) return false;
-    return value.every(isSimpleValue);
+  const items = toItems(value);
+  if (items) {
+    if (items.length > MAX_INLINE_ARRAY_LENGTH) return false;
+    return items.every(isSimpleValue);
   }
 
   if (typeof value === "object" && value !== null) {
     if (ctx.seen.has(value)) return false;
-    const keys = Object.keys(value);
-    if (keys.length > MAX_INLINE_OBJECT_KEYS) return false;
-    return keys.every((key) => isSimpleValue((value as Record<string, unknown>)[key]));
+    const entries = toEntries(value);
+    if (entries.length > MAX_INLINE_OBJECT_KEYS) return false;
+    return entries.every(([, val]) => isSimpleValue(val));
   }
 
   return false;
 };
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
-export const formatWithTree = (value: unknown, ctx: FormatContext, parentPrefix = "") => {
+const pushWrapped = (lines: string[], prefix: string, wrapped: string[]) => {
+  lines.push(`${prefix}${wrapped[0] || ""}`);
+  for (let i = 1; i < wrapped.length; i++) {
+    const line = wrapped[i];
+    if (line !== undefined) lines.push(line);
+  }
+};
+
+// eslint-disable-next-line sonarjs/cognitive-complexity -- heavy renderer, suppression per repo convention
+export const formatWithTree = (value: unknown, ctx: FormatContext, parentPrefix = ""): string[] => {
   if (ctx.depth > ctx.maxDepth) {
     return [`${parentPrefix}${colors.gray("...")}`];
   }
 
   if (isSimpleValue(value)) {
-    return [formatPrimitive(value)];
+    return [`${parentPrefix}${formatPrimitive(value)}`];
   }
 
   if (typeof value === "object" && value !== null) {
     if (ctx.seen.has(value)) {
-      return [colors.red("[Circular]")];
+      return [`${parentPrefix}${colors.red("[Circular]")}`];
     }
     ctx.seen.add(value);
   }
 
-  if (ctx.compact && canBeCompacted(value, ctx.seen)) {
-    if (Array.isArray(value)) {
-      return [formatCompactArray(value)];
-    }
-    if (typeof value === "object" && value !== null) {
-      return [formatCompactObject(value)];
-    }
+  if (typeof value === "object" && value !== null && ctx.compact && canBeCompacted(value, ctx.seen)) {
+    return [`${parentPrefix}${formatCompactValue(value)}`];
   }
 
   const lines: string[] = [];
+  const items = toItems(value);
 
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return [colors.gray("[]")];
+  if (items) {
+    if (items.length === 0) {
+      return [`${parentPrefix}${colors.gray(Array.isArray(value) ? "[]" : "Set(0)")}`];
     }
 
-    const allItemsCompact = value.every((item) => shouldBeCompactInline(item, ctx));
+    const allItemsCompact = items.every((item) => shouldBeCompactInline(item, ctx));
 
     const treeColor = getTreeColor(ctx.depth);
-    for (const [index, item] of value.entries()) {
-      const isLastItem = index === value.length - 1;
+    for (const [index, item] of items.entries()) {
+      const isLastItem = index === items.length - 1;
       const itemPrefix = treeColor(isLastItem ? "└─" : "├─");
       const continuationPrefix = treeColor(isLastItem ? "  " : "│ ");
       const key = keyColor(`[${index}]`);
@@ -86,42 +92,22 @@ export const formatWithTree = (value: unknown, ctx: FormatContext, parentPrefix 
         path: [...ctx.path, `[${index}]`],
       } satisfies FormatContext;
 
-      if (isSimpleValue(item)) {
+      if (isSimpleValue(item) || allItemsCompact) {
+        const formatted = isSimpleValue(item) ? formatPrimitive(item) : formatCompactValue(item as object);
         const prefix = `${parentPrefix}${itemPrefix} ${key}: `;
-        const availableWidth = ctx.terminalWidth - stripAnsi(prefix).length - TREE_MARGIN;
-        const wrapIndent =
-          parentPrefix + continuationPrefix + " ".repeat(stripAnsi(key).length + KEY_SPACING);
-        const wrappedLines = applyTextWrapping(formatPrimitive(item), availableWidth, wrapIndent);
-
-        lines.push(`${prefix}${wrappedLines[0] || ""}`);
-        for (let i = 1; i < wrappedLines.length; i++) {
-          const line = wrappedLines[i];
-          if (line !== undefined) lines.push(line);
-        }
-      } else if (allItemsCompact) {
-        const formatted = Array.isArray(item) ? formatCompactArray(item) : formatCompactObject(item);
-        const prefix = `${parentPrefix}${itemPrefix} ${key}: `;
-        const availableWidth = ctx.terminalWidth - stripAnsi(prefix).length - TREE_MARGIN;
-        const wrapIndent =
-          parentPrefix + continuationPrefix + " ".repeat(stripAnsi(key).length + KEY_SPACING);
-        const wrappedLines = applyTextWrapping(formatted, availableWidth, wrapIndent);
-
-        lines.push(`${prefix}${wrappedLines[0] || ""}`);
-        for (let i = 1; i < wrappedLines.length; i++) {
-          const line = wrappedLines[i];
-          if (line !== undefined) lines.push(line);
-        }
+        const availableWidth = ctx.terminalWidth - stringWidth(prefix) - TREE_MARGIN;
+        const wrapIndent = parentPrefix + continuationPrefix + " ".repeat(stringWidth(key) + KEY_SPACING);
+        pushWrapped(lines, prefix, applyTextWrapping(formatted, availableWidth, wrapIndent));
       } else {
         lines.push(`${parentPrefix}${itemPrefix} ${key}`);
-        const subLines = formatWithTree(item, newCtx, parentPrefix + continuationPrefix);
-        for (const line of subLines) lines.push(line);
+        lines.push(...formatWithTree(item, newCtx, parentPrefix + continuationPrefix));
       }
     }
   } else if (typeof value === "object" && value !== null) {
-    const entries = Object.entries(value);
+    const entries = toEntries(value);
 
     if (entries.length === 0) {
-      return [colors.gray("{}")];
+      return [`${parentPrefix}${colors.gray(value instanceof Map ? "Map(0)" : "{}")}`];
     }
 
     const treeColor = getTreeColor(ctx.depth);
@@ -139,45 +125,33 @@ export const formatWithTree = (value: unknown, ctx: FormatContext, parentPrefix 
 
       if (isSimpleValue(val)) {
         const prefix = `${parentPrefix}${itemPrefix} ${keyColor(formattedKey)}: `;
-        const availableWidth = ctx.terminalWidth - stripAnsi(prefix).length - TREE_MARGIN;
+        const availableWidth = ctx.terminalWidth - stringWidth(prefix) - TREE_MARGIN;
         const wrapIndent =
-          parentPrefix + continuationPrefix + " ".repeat(stripAnsi(formattedKey).length + KEY_PADDING);
-        const wrappedLines = applyTextWrapping(formatPrimitive(val), availableWidth, wrapIndent);
-
-        lines.push(`${prefix}${wrappedLines[0] || ""}`);
-        for (let i = 1; i < wrappedLines.length; i++) {
-          const line = wrappedLines[i];
-          if (line !== undefined) lines.push(line);
-        }
+          parentPrefix + continuationPrefix + " ".repeat(stringWidth(formattedKey) + KEY_PADDING);
+        pushWrapped(lines, prefix, applyTextWrapping(formatPrimitive(val), availableWidth, wrapIndent));
       } else if (ctx.compact) {
         const prefix = `${parentPrefix}${itemPrefix} ${keyColor(formattedKey)}: `;
-        const availableWidth = ctx.terminalWidth - stripAnsi(prefix).length - TREE_MARGIN;
+        const availableWidth = ctx.terminalWidth - stringWidth(prefix) - TREE_MARGIN;
 
         if (canBeCompacted(val, ctx.seen, availableWidth)) {
-          const formatted = Array.isArray(val) ? formatCompactArray(val) : formatCompactObject(val);
-
           const wrapIndent =
-            parentPrefix + continuationPrefix + " ".repeat(stripAnsi(formattedKey).length + 2);
-          const wrappedLines = applyTextWrapping(formatted, availableWidth, wrapIndent);
-
-          lines.push(`${prefix}${wrappedLines[0]}`);
-          for (let i = 1; i < wrappedLines.length; i++) {
-            const line = wrappedLines[i];
-            if (line !== undefined) lines.push(line);
-          }
+            parentPrefix + continuationPrefix + " ".repeat(stringWidth(formattedKey) + KEY_PADDING);
+          pushWrapped(
+            lines,
+            prefix,
+            applyTextWrapping(formatCompactValue(val as object), availableWidth, wrapIndent),
+          );
         } else {
           lines.push(`${parentPrefix}${itemPrefix} ${keyColor(formattedKey)}`);
-          const subLines = formatWithTree(val, newCtx, parentPrefix + continuationPrefix);
-          for (const line of subLines) lines.push(line);
+          lines.push(...formatWithTree(val, newCtx, parentPrefix + continuationPrefix));
         }
       } else {
         lines.push(`${parentPrefix}${itemPrefix} ${keyColor(formattedKey)}`);
-        const subLines = formatWithTree(val, newCtx, parentPrefix + continuationPrefix);
-        for (const line of subLines) lines.push(line);
+        lines.push(...formatWithTree(val, newCtx, parentPrefix + continuationPrefix));
       }
     }
   } else {
-    return [formatPrimitive(value)];
+    return [`${parentPrefix}${formatPrimitive(value)}`];
   }
 
   return lines;

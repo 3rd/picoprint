@@ -3,10 +3,9 @@ export {
   decreaseIndent,
   defaultContext,
   getCurrentContext,
-  getEffectiveOffset,
-  getEffectiveWidth,
   increaseIndent,
   popContext,
   pushContext,
+  resolveRenderContext,
 } from "./context";
-export type { RenderContext } from "./context";
+export type { RenderContext, RenderOptions } from "./context";

@@ -38,10 +38,11 @@ printExample("Streaming Pretty Print", [
   {
     title: "Values incrementally",
     handler: () => {
-      const s = p.stream.prettyPrint({ compact: true });
+      const s = p.stream.pp({ compact: true });
       s.value({ a: 1, b: true, s: "str" });
       s.value({ users: ["a", "b", "c"], count: 3 });
       s.text("literal text is wrapped");
+      s.close();
     },
   },
 ]);

@@ -1,26 +1,30 @@
-import { drawHorizontalLine } from "@/utils/line-styles";
-import { renderAndReturn, write } from "@/utils/writer";
-import type { RenderContext } from "../context";
-import { colors } from "../colors";
-import { getCurrentContext } from "../context";
+import type { RenderContext, RenderOptions } from "../context";
+import { colors } from "../../utils/colors";
+import { drawHorizontalLine } from "../../utils/line-styles";
+import {
+  assertBooleanOption,
+  assertEnumOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertRegExpOption,
+  isOptionsObject,
+  isPlainRecord,
+} from "../../utils/options";
+import { renderAndReturn, write } from "../../utils/writer";
+import { getCurrentContext, resolveRenderContext } from "../context";
 
-export interface TraceOptions {
-  color?: boolean;
+export interface TraceOptions extends RenderOptions {
   maxFrames?: number;
   filter?: RegExp;
-  header?: "boom" | "none" | "plain";
-  skipInternalFrames?: boolean;
-  printHeader?: boolean;
-  printFooter?: boolean;
-  renderContext?: RenderContext;
+  header?: "none" | "plain";
+  footer?: boolean;
 }
 
-export interface StackOptions {
+export interface StackOptions extends RenderOptions {
   maxFrames?: number;
   showFiles?: "hide" | "show";
   skipFrames?: number;
   highlight?: RegExp;
-  renderContext?: RenderContext;
 }
 
 export interface StackFrame {
@@ -51,6 +55,18 @@ const parseStackFrame = (line: string) => {
   };
 };
 
+const testRegExp = (regex: RegExp, value: string) => {
+  const regexForTest = regex;
+  const previousLastIndex = regexForTest.lastIndex;
+  regexForTest.lastIndex = 0;
+
+  try {
+    return regexForTest.test(value);
+  } finally {
+    regexForTest.lastIndex = previousLastIndex;
+  }
+};
+
 const formatStackFrame = (frame: StackFrame, frameNumber: number, options: StackOptions) => {
   const { showFiles = "show", highlight } = options;
   const lines: string[] = [];
@@ -63,7 +79,7 @@ const formatStackFrame = (frame: StackFrame, frameNumber: number, options: Stack
   if (showFiles === "show") {
     const location = `${frame.fileName}:${frame.lineNumber}:${frame.columnNumber}`;
     const coloredLocation =
-      highlight && highlight.test(location) ? colors.red(location) : colors.cyan(location);
+      highlight && testRegExp(highlight, location) ? colors.red(location) : colors.cyan(location);
 
     lines.push(`     ${colors.dim("at")} ${coloredLocation}`);
   }
@@ -73,18 +89,47 @@ const formatStackFrame = (frame: StackFrame, frameNumber: number, options: Stack
 
 const DEFAULT_MAX_FRAMES = 20;
 const DEFAULT_STACK_FRAMES = 10;
+const TRACE_HEADER_VALUES = ["none", "plain"] as const;
+const STACK_SHOW_FILES_VALUES = ["hide", "show"] as const;
 const getSeparator = (ctx?: RenderContext) =>
   drawHorizontalLine(Math.max(1, (ctx ?? getCurrentContext()).getWidth()));
 
+const validateTraceOptions = (options: TraceOptions) => {
+  assertPlainOptionsObject(options, "trace options");
+  assertNonNegativeIntegerOption(options.maxFrames, "maxFrames");
+  assertRegExpOption(options.filter, "filter");
+  assertEnumOption(options.header, "header", TRACE_HEADER_VALUES);
+  assertBooleanOption(options.footer, "footer");
+};
+
+const assertStackArgument = (value: unknown) => {
+  if (value === undefined || value instanceof Error || typeof value === "string" || isPlainRecord(value)) return;
+  throw new TypeError("picoprint trace.stack argument must be an Error, stack string, or options object");
+};
+
+const validateStackOptions = (options: StackOptions, optionName = "trace.stack options") => {
+  assertPlainOptionsObject(options, optionName);
+  assertNonNegativeIntegerOption(options.maxFrames, "maxFrames");
+  assertEnumOption(options.showFiles, "showFiles", STACK_SHOW_FILES_VALUES);
+  assertNonNegativeIntegerOption(options.skipFrames, "skipFrames");
+  assertRegExpOption(options.highlight, "highlight");
+};
+
+const getTraceStack = (err: unknown, message: string) => {
+  if (err instanceof Error && err.stack) return err.stack;
+  const callErr = new Error(message);
+  return callErr.stack || `Error: ${message}`;
+};
+
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export const trace = (err: unknown, options: TraceOptions = {}) =>
   renderAndReturn(() => {
+    validateTraceOptions(options);
     const {
       maxFrames = DEFAULT_MAX_FRAMES,
       filter,
       header = "plain",
-      printHeader = true,
-      printFooter = true,
-      renderContext,
+      footer = true,
     } = options;
 
     const message = (() => {
@@ -93,19 +138,14 @@ export const trace = (err: unknown, options: TraceOptions = {}) =>
       return String(err);
     })();
 
-    const callErr = new Error(message);
-    const stackStr = callErr.stack || `Error: ${message}`;
+    const stackStr = getTraceStack(err, message);
     const lines = stackStr.split("\n");
 
-    const ctx = renderContext ?? getCurrentContext();
+    const ctx = resolveRenderContext(options);
     const indent = " ".repeat(ctx.offset);
 
-    if (printHeader && header !== "none") {
-      if (header === "boom") {
-        write(indent + colors.red(colors.bold("💥 Error: ")) + colors.red(message));
-      } else {
-        write(indent + colors.red(`Error: ${message}`));
-      }
+    if (header !== "none") {
+      write(indent + colors.red(`Error: ${message}`));
     }
 
     // top separator
@@ -121,7 +161,7 @@ export const trace = (err: unknown, options: TraceOptions = {}) =>
       const isStackLine = raw.trim().startsWith("at ");
 
       if (!frame && !isStackLine) continue;
-      if (filter && !filter.test(raw)) continue;
+      if (filter && !testRegExp(filter, raw)) continue;
 
       frameCount++;
       if (frame) {
@@ -137,20 +177,27 @@ export const trace = (err: unknown, options: TraceOptions = {}) =>
       write(indent + colors.dim(`  ... ${remaining} more frames`));
     }
 
-    if (printFooter) write(indent + colors.gray(getSeparator(ctx)));
+    if (footer) write(indent + colors.gray(getSeparator(ctx)));
   });
 
-export const stack = (error?: Error | string, options: StackOptions = {}): string =>
-  renderAndReturn(() => {
+export function stack(options?: StackOptions): string;
+export function stack(error?: Error | string, options?: StackOptions): string;
+export function stack(errorOrOptions?: Error | StackOptions | string, options: StackOptions = {}): string {
+  assertStackArgument(errorOrOptions);
+  const isOptionsOnly = isOptionsObject(errorOrOptions) && !(errorOrOptions instanceof Error);
+  const error = isOptionsOnly ? undefined : errorOrOptions;
+  const opts: StackOptions = isOptionsOnly ? (errorOrOptions as StackOptions) : options;
+
+  return renderAndReturn(() => {
+    validateStackOptions(opts);
     const {
       maxFrames = DEFAULT_STACK_FRAMES,
       showFiles = "show",
       skipFrames = 0,
       highlight,
-      renderContext,
-    } = options;
+    } = opts;
 
-    const ctx = renderContext ?? getCurrentContext();
+    const ctx = resolveRenderContext(opts);
     const indent = " ".repeat(ctx.offset);
     const stackStr = (() => {
       if (error instanceof Error) return error.stack || "";
@@ -166,7 +213,7 @@ export const stack = (error?: Error | string, options: StackOptions = {}): strin
     const errorMessage =
       error instanceof Error || typeof error === "string" ? lines[0] || "Stack Trace" : "Stack Trace";
 
-    write(indent + colors.cyan(colors.bold("📍 ")) + colors.cyan(errorMessage));
+    write(indent + colors.cyan(colors.bold(errorMessage)));
     write(indent + colors.gray(getSeparator(ctx)));
 
     let frameCount = 0;
@@ -204,10 +251,12 @@ export const stack = (error?: Error | string, options: StackOptions = {}): strin
 
     write(indent + colors.gray(getSeparator(ctx)));
   });
+}
 
 export const error = (err: unknown, options: TraceOptions = {}) =>
   renderAndReturn(() => {
-    const ctx = options.renderContext ?? getCurrentContext();
+    validateTraceOptions(options);
+    const ctx = resolveRenderContext(options);
     const indent = " ".repeat(ctx.offset);
 
     const message = (() => {
@@ -216,43 +265,50 @@ export const error = (err: unknown, options: TraceOptions = {}) =>
       return String(err);
     })();
 
-    write(indent + colors.red(colors.bold("💥 Error: ")) + colors.red(message));
+    write(indent + colors.red(colors.bold("Error: ")) + colors.red(message));
 
     if (err instanceof Error) {
       if (err.name && err.name !== "Error") {
         write(indent + colors.dim(`Type: ${err.name}`));
       }
-      if (err.cause) {
+      if ("cause" in err && err.cause !== undefined) {
         write(indent + colors.dim(`Cause: ${String(err.cause)}`));
       }
     }
 
-    trace(message, { ...options, header: "none", printHeader: false });
+    trace(err, { ...options, header: "none" });
   });
 
-export const callStack = (options: { renderContext?: RenderContext } = {}) =>
+export const callStack = (options: StackOptions = {}) =>
   renderAndReturn(() => {
-    const ctx = options.renderContext ?? getCurrentContext();
+    validateStackOptions(options, "trace.callStack options");
+    const ctx = resolveRenderContext(options);
     const indent = " ".repeat(ctx.offset);
+    const { maxFrames, showFiles = "show", skipFrames = 0, highlight } = options;
     const err = new Error("trace");
     const stackStr = err.stack || "";
     const lines = stackStr.split("\n");
 
     lines.splice(0, 2);
 
-    write(indent + colors.cyan(colors.bold("📞 Call Stack")));
+    write(indent + colors.cyan(colors.bold("Call Stack")));
     write(indent + colors.gray(getSeparator(ctx)));
 
-    let frameCount = 0;
-
-    for (const frame of lines
+    const frames = lines
       .filter((line) => line?.trim())
       .map(parseStackFrame)
-      .filter((f): f is NonNullable<typeof f> => f !== null)) {
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+    const visibleFrames = frames.slice(skipFrames, skipFrames + (maxFrames ?? frames.length));
+    let frameCount = 0;
+
+    for (const frame of visibleFrames) {
       frameCount++;
-      const frameLines = formatStackFrame(frame, frameCount, { showFiles: "show" });
+      const frameLines = formatStackFrame(frame, frameCount, { showFiles, highlight });
       for (const frameLine of frameLines) write(indent + frameLine);
     }
+
+    const remaining = Math.max(0, frames.length - skipFrames - visibleFrames.length);
+    if (remaining > 0) write(indent + colors.dim(`  ... ${remaining} more frames`));
 
     write(indent + colors.gray(getSeparator(ctx)));
   });

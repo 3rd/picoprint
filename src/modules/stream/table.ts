@@ -1,29 +1,58 @@
-import { colors, keyColor } from "@/modules/colors";
-import { getCurrentContext, type RenderContext } from "@/modules/context";
-import { formatTableCell, padCell } from "@/modules/table/_shared";
-import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
-import { write } from "@/utils/writer";
-import { Closable, visibleLen } from "./_shared";
+import { stringWidth } from "../../utils/ansi";
+import { colors, keyColor } from "../../utils/colors";
+import { assertLineStyleOption, getLineStyle, type LineStyleName } from "../../utils/line-styles";
+import {
+  ALIGN_VALUES,
+  assertBooleanOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertRecordArgument,
+  assertStringRecordEnumOption,
+} from "../../utils/options";
+import { write } from "../../utils/writer";
+import { getConfig } from "../config";
+import { type RenderOptions, resolveRenderContext } from "../context";
+import { formatTableCell, padCell } from "../table/_shared";
+import { Closable } from "./_shared";
 
 export interface TableStreamOptions {
-  columns: string[];
+  offset?: RenderOptions["offset"];
+  columns: readonly string[];
   maxWidth?: number; // per-column
   align?: Record<string, "center" | "left" | "right">;
   showIndex?: boolean;
   compact?: boolean;
   style?: LineStyleName;
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
 export interface TableStream extends Closable {
   row: (data: Record<string, unknown>) => void;
 }
 
+const validateTableStreamOptions = (opts: TableStreamOptions) => {
+  if (
+    !opts ||
+    !Array.isArray(opts.columns) ||
+    opts.columns.length === 0 ||
+    opts.columns.some((column) => typeof column !== "string")
+  ) {
+    throw new TypeError("picoprint stream.table columns must be a non-empty string[]");
+  }
+  assertPlainOptionsObject(opts, "stream.table options");
+  assertNonNegativeIntegerOption(opts.maxWidth, "maxWidth");
+  assertStringRecordEnumOption(opts.align, "align", ALIGN_VALUES);
+  assertBooleanOption(opts.showIndex, "showIndex");
+  assertBooleanOption(opts.compact, "compact");
+  assertLineStyleOption(opts.style, "style");
+};
+
 export const table = (opts: TableStreamOptions): TableStream => {
-  const ctx = opts.renderContext ?? getCurrentContext();
+  validateTableStreamOptions(opts);
+  const ctx = resolveRenderContext(opts);
   const indent = " ".repeat(ctx.offset);
-  const styleName = opts.style ?? "single";
+  const styleName = opts.style ?? getConfig().defaults?.style ?? "single";
   const style = getLineStyle(styleName);
-  const compact = opts.compact ?? false;
+  const compact = opts.compact ?? getConfig().defaults?.compact ?? false;
   const padding = compact ? 1 : 2;
   const maxWidth = opts.maxWidth ?? 30;
 
@@ -32,7 +61,7 @@ export const table = (opts: TableStreamOptions): TableStream => {
   const headers = showIndex ? ["#", ...baseCols] : baseCols;
 
   const widths: Record<string, number> = {};
-  for (const h of headers) widths[h] = Math.max(visibleLen(h), 3, Math.min(maxWidth, visibleLen(h)));
+  for (const h of headers) widths[h] = Math.max(stringWidth(h), 3, Math.min(maxWidth, stringWidth(h)));
 
   const drawLine = (where: "bottom" | "middle" | "top") => {
     let out = "";
@@ -78,9 +107,12 @@ export const table = (opts: TableStreamOptions): TableStream => {
   drawHeader();
 
   let count = 0;
+  let isOpen = true;
 
   return {
     row: (data: Record<string, unknown>) => {
+      if (!isOpen) return;
+      assertRecordArgument(data, "stream.table row data");
       count += 1;
       let line = colors.gray(style.vertical);
       for (const h of headers) {
@@ -99,7 +131,9 @@ export const table = (opts: TableStreamOptions): TableStream => {
       write(indent + line);
     },
     close: () => {
+      if (!isOpen) return;
       drawLine("bottom");
+      isOpen = false;
     },
   };
 };

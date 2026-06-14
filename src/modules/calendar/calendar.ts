@@ -1,12 +1,13 @@
-import { drawHorizontalLine } from "@/utils/line-styles";
-import { renderAndReturn, write } from "@/utils/writer";
 import type { CalendarEvent, CalendarOptions } from "./types";
-import { colors } from "../colors";
-import { getCurrentContext } from "../context";
+import { assertForegroundColorOption, colors } from "../../utils/colors";
+import { drawHorizontalLine } from "../../utils/line-styles";
+import { assertBooleanOption, assertPlainOptionsObject, isOptionsObject, isPlainRecord } from "../../utils/options";
+import { renderAndReturn, write } from "../../utils/writer";
+import { resolveRenderContext } from "../context";
 
 const MILLISECONDS_PER_DAY = 86_400_000;
 const DAYS_PER_WEEK = 7;
-const getSeparator = () => drawHorizontalLine(Math.max(1, getCurrentContext().getWidth()));
+const getSeparator = (width: number) => drawHorizontalLine(Math.max(1, width));
 const SUNDAY = 0;
 const SATURDAY = 6;
 
@@ -83,19 +84,68 @@ const formatDate = (date: Date, format = "YYYY-MM-DD") => {
 };
 
 const PRIORITY_ICONS: Partial<Record<string, string>> = { high: "🔥", medium: "⚡" };
+const EVENT_PRIORITIES = ["high", "low", "medium"] as const;
+
+const assertCalendarDate = (value: unknown, optionName: string) => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    throw new TypeError(`picoprint ${optionName} must be a valid Date`);
+  }
+};
+
+const validateCalendarOptions = (date: unknown, options: CalendarOptions) => {
+  assertCalendarDate(date, "calendar date");
+  assertPlainOptionsObject(options as unknown, "calendar options");
+
+  if (
+    options.firstDayOfWeek !== undefined &&
+    (!Number.isInteger(options.firstDayOfWeek) || options.firstDayOfWeek < 0 || options.firstDayOfWeek > 6)
+  ) {
+    throw new RangeError("picoprint firstDayOfWeek must be an integer from 0 to 6");
+  }
+
+  if (options.events !== undefined && !Array.isArray(options.events)) {
+    throw new TypeError("picoprint events must be an array");
+  }
+
+  assertBooleanOption(options.showWeekNumbers, "showWeekNumbers");
+  assertBooleanOption(options.highlightToday, "highlightToday");
+  assertBooleanOption(options.highlightWeekends, "highlightWeekends");
+  assertBooleanOption(options.showHeader, "showHeader");
+  assertBooleanOption(options.showFooter, "showFooter");
+
+  for (const [index, event] of (options.events ?? []).entries()) {
+    if (!isPlainRecord(event)) {
+      throw new TypeError(`picoprint events[${index}] must be an object`);
+    }
+    assertCalendarDate(event.date, `events[${index}].date`);
+    if (typeof event.label !== "string") {
+      throw new TypeError(`picoprint events[${index}].label must be a string`);
+    }
+    assertForegroundColorOption(event.color, `events[${index}].color`);
+    const priority = event.priority;
+    if (priority !== undefined && !EVENT_PRIORITIES.includes(priority as (typeof EVENT_PRIORITIES)[number])) {
+      throw new TypeError(`picoprint events[${index}].priority must be one of: ${EVENT_PRIORITIES.join(", ")}`);
+    }
+  }
+};
+
+const isCalendarOptionsInput = (value: unknown): value is CalendarOptions => {
+  return isOptionsObject(value) && !(value instanceof Date);
+};
 
 const renderCalendarFooter = (config: {
-  events?: CalendarEvent[];
+  events?: readonly CalendarEvent[];
   year: number;
   month: number;
+  width: number;
   highlightToday: boolean;
   highlightWeekends: boolean;
   today: Date;
 }) => {
-  const { events, year, month, highlightToday, highlightWeekends, today } = config;
+  const { events, year, month, width, highlightToday, highlightWeekends, today } = config;
   const footerLines: string[] = [];
 
-  footerLines.push(colors.gray(getSeparator()));
+  footerLines.push(colors.gray(getSeparator(width)));
 
   if (events && events.length > 0) {
     footerLines.push(colors.cyan(colors.bold("Events:")));
@@ -119,7 +169,17 @@ const renderCalendarFooter = (config: {
   return footerLines;
 };
 
-export const calendar = (date: Date = new Date(), options: CalendarOptions = {}) => {
+export function calendar(options?: CalendarOptions): string;
+export function calendar(date?: Date, options?: CalendarOptions): string;
+export function calendar(
+  dateOrOptions: CalendarOptions | Date = new Date(),
+  options: CalendarOptions = {},
+) {
+  const isOptionsOnly = isCalendarOptionsInput(dateOrOptions);
+  const date = isOptionsOnly ? new Date() : dateOrOptions;
+  const opts = isOptionsOnly ? dateOrOptions : options;
+
+  validateCalendarOptions(date, opts);
   const {
     firstDayOfWeek = 1,
     showWeekNumbers = false,
@@ -128,8 +188,9 @@ export const calendar = (date: Date = new Date(), options: CalendarOptions = {})
     showHeader = false,
     showFooter = false,
     events,
-    renderContext,
-  } = options;
+  } = opts;
+  const ctx = resolveRenderContext(opts);
+  const width = ctx.getWidth();
 
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -159,7 +220,7 @@ export const calendar = (date: Date = new Date(), options: CalendarOptions = {})
     const headerTitle =
       hasEvents ? `📅 ${monthNames[month]} ${year} - Events` : `📅 ${monthNames[month]} ${year}`;
     lines.push(colors.cyan(colors.bold(headerTitle)));
-    lines.push(colors.gray(getSeparator()));
+    lines.push(colors.gray(getSeparator(width)));
   }
 
   let headerRow = showWeekNumbers ? "   " : "";
@@ -214,12 +275,11 @@ export const calendar = (date: Date = new Date(), options: CalendarOptions = {})
   }
 
   if (showFooter) {
-    lines.push(...renderCalendarFooter({ events, year, month, highlightToday, highlightWeekends, today }));
+    lines.push(...renderCalendarFooter({ events, year, month, width, highlightToday, highlightWeekends, today }));
   }
 
-  const ctx = renderContext ?? getCurrentContext();
   const indent = " ".repeat(ctx.offset);
   return renderAndReturn(() => {
     for (const line of lines) write(indent + line);
   });
-};
+}

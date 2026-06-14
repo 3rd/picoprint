@@ -175,6 +175,14 @@ export const isValidStyleName = (name: string): name is LineStyleName => {
   return name in LINE_STYLES;
 };
 
+export const assertLineStyleOption = (value: unknown, optionName: string) => {
+  if (value === undefined) return;
+  const validStyles = getAllStyleNames().join(", ");
+  if (typeof value !== "string" || !isValidStyleName(value)) {
+    throw new TypeError(`picoprint ${optionName} must be one of: ${validStyles}`);
+  }
+};
+
 export const getLineChar = (styleName: LineStyleName, charType: keyof LineStyleChars) => {
   const style = getLineStyle(styleName);
   return style[charType] || "";

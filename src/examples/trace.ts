@@ -37,7 +37,7 @@ printExample("Stack Trace Options", [
   {
     title: "Custom options",
     handler: () => {
-      p.trace.stack(undefined, {
+      p.trace.stack({
         maxFrames: 3,
         showFiles: "show",
       });
@@ -109,6 +109,10 @@ printExample("Error Formatting", [
 // Call stack
 printExample("Call Stack", [
   { title: "Current call stack", handler: () => p.trace.callStack() },
+  {
+    title: "Limited call stack",
+    handler: () => p.trace.callStack({ maxFrames: 3, showFiles: "hide" }),
+  },
   {
     title: "Nested function stack",
     handler: () => {

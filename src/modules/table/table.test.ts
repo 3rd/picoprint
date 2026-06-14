@@ -49,6 +49,20 @@ describe("table", () => {
       expect(output).toContain("cherry");
     });
 
+    it("should infer columns from all object rows", () => {
+      const data = [{ name: "Alice" }, { age: 30 }, { city: "London" }];
+
+      table(data);
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("name");
+      expect(output).toContain("age");
+      expect(output).toContain("city");
+      expect(output).toContain("Alice");
+      expect(output).toContain("30");
+      expect(output).toContain("London");
+    });
+
     it("should render a Map as a key-value table", () => {
       const data = new Map<string, unknown>([
         ["name", "Alice"],
@@ -86,6 +100,27 @@ describe("table", () => {
       expect(output).toContain("30");
     });
 
+    it("should render a null-prototype plain object as a key-value table", () => {
+      const data = Object.assign(Object.create(null) as Record<string, unknown>, { name: "Alice" });
+
+      table(data);
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("key");
+      expect(output).toContain("value");
+      expect(output).toContain("name");
+      expect(output).toContain("Alice");
+    });
+
+    it("should render arrays of non-record values as a single value column", () => {
+      table([new Date("2024-01-01"), "ok"]);
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("value");
+      expect(output).toContain("2024-01-01");
+      expect(output).toContain("ok");
+    });
+
     it("should handle empty arrays", () => {
       table([]);
 
@@ -95,7 +130,9 @@ describe("table", () => {
 
     it("should reject invalid data at the type level", () => {
       // @ts-expect-error -- string is not a valid TableData
-      table("invalid");
+      expect(() => table("invalid")).toThrow(
+        "picoprint table data must be an array, plain object, or Map",
+      );
     });
   });
 
@@ -161,16 +198,47 @@ describe("table", () => {
 
       expect(logOutput.length).toBeGreaterThan(0);
     });
-  });
 
-  describe("ppTable alias", () => {
-    it("should work the same as table", () => {
-      const data = [{ test: "value" }];
+    it("should throw stable errors for invalid table options", () => {
+      const data = [{ a: 1 }];
 
-      table(data);
-
-      expect(logOutput.length).toBeGreaterThan(0);
-      expect(logOutput.join("\n")).toContain("test");
+      expect(() => table(null as never)).toThrow(
+        "picoprint table data must be an array, plain object, or Map",
+      );
+      expect(() => table(new Date("2024-01-01") as never)).toThrow(
+        "picoprint table data must be an array, plain object, or Map",
+      );
+      expect(() => table(/ok/ as never)).toThrow(
+        "picoprint table data must be an array, plain object, or Map",
+      );
+      expect(() => table(new Set([1]) as never)).toThrow(
+        "picoprint table data must be an array, plain object, or Map",
+      );
+      expect(() => table([{ a: 1 }, new Date("2024-01-01")] as never)).toThrow(
+        "picoprint table data rows[1] must be a plain object",
+      );
+      expect(() => table(data, 12 as never)).toThrow("picoprint table options must be an object");
+      expect(() => table(data, null as never)).toThrow("picoprint table options must be an object");
+      expect(() => table(data, new Date() as never)).toThrow(
+        "picoprint table options must be an object",
+      );
+      expect(() => table(data, { columns: "a" as never })).toThrow("picoprint columns must be string[]");
+      expect(() => table(data, { maxWidth: -1 })).toThrow(
+        "picoprint maxWidth must be a non-negative integer",
+      );
+      expect(() => table(data, { align: { a: "middle" as never } })).toThrow(
+        "picoprint align.a must be one of:",
+      );
+      expect(() => table(data, { align: new Date() as never })).toThrow(
+        "picoprint align must be an object",
+      );
+      expect(() => table(data, { showIndex: "yes" as never })).toThrow(
+        "picoprint showIndex must be a boolean",
+      );
+      expect(() => table(data, { compact: "yes" as never })).toThrow(
+        "picoprint compact must be a boolean",
+      );
+      expect(logOutput).toHaveLength(0);
     });
   });
 
@@ -178,8 +246,9 @@ describe("table", () => {
     it("should compare two objects in a table", () => {
       const left = { a: 1, b: 2, c: 3 };
       const right = { a: 1, b: 5, d: 4 };
+      const options: NonNullable<Parameters<typeof compareInTable>[2]> = { maxWidth: 12 };
 
-      compareInTable(left, right);
+      compareInTable(left, right, options);
 
       const output = logOutput.join("\n");
       expect(output).toContain("key");
@@ -188,6 +257,38 @@ describe("table", () => {
       expect(output).toContain("match");
       expect(output).toContain("✓");
       expect(output).toContain("✗");
+    });
+
+    it("should reject ignored columns at the type level", () => {
+      // @ts-expect-error -- table.compare owns its comparison columns
+      const options: NonNullable<Parameters<typeof compareInTable>[2]> = { columns: ["key"] };
+
+      expect(options as unknown).toEqual({ columns: ["key"] });
+    });
+
+    it("should throw stable errors for invalid compare options", () => {
+      expect(() => compareInTable(null as never, { a: 1 })).toThrow(
+        "picoprint table.compare left must be a plain object",
+      );
+      expect(() => compareInTable([] as never, { a: 1 })).toThrow(
+        "picoprint table.compare left must be a plain object",
+      );
+      expect(() => compareInTable(new Date("2024-01-01") as never, { a: 1 })).toThrow(
+        "picoprint table.compare left must be a plain object",
+      );
+      expect(() => compareInTable({ a: 1 }, null as never)).toThrow(
+        "picoprint table.compare right must be a plain object",
+      );
+      expect(() => compareInTable({ a: 1 }, [] as never)).toThrow(
+        "picoprint table.compare right must be a plain object",
+      );
+      expect(() => compareInTable({ a: 1 }, { a: 2 }, 12 as never)).toThrow(
+        "picoprint table.compare options must be an object",
+      );
+      expect(() => compareInTable({ a: 1 }, { a: 2 }, new Date() as never)).toThrow(
+        "picoprint table.compare options must be an object",
+      );
+      expect(logOutput).toHaveLength(0);
     });
   });
 

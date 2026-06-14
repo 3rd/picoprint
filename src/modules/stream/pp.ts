@@ -1,31 +1,29 @@
-import type { PrettyPrintOptions } from "@/modules/pp/pp";
-import type { FormatContext } from "@/modules/pp/types";
-import { getCurrentContext, type RenderContext } from "@/modules/context";
-import {
-  canBeCompacted,
-  formatCompactArray,
-  formatCompactObject,
-  formatPrimitive,
-} from "@/modules/pp/formatters";
-import { formatWithTree } from "@/modules/pp/tree";
-import { applyTextWrapping } from "@/utils/string";
-import { isSimpleValue } from "@/utils/value-helpers";
-import { write } from "@/utils/writer";
+import type { FormatContext } from "../pp/types";
 import type { Closable } from "./_shared";
+import { assertPlainOptionsObject, assertStringArgument } from "../../utils/options";
+import { applyTextWrapping } from "../../utils/string";
+import { isSimpleValue } from "../../utils/value-helpers";
+import { write } from "../../utils/writer";
+import { resolveRenderContext } from "../context";
+import { canBeCompacted, formatCompactValue, formatPrimitive } from "../pp/formatters";
+import { type PrettyPrintOptions, validatePrettyPrintOptions } from "../pp/pp";
+import { formatWithTree } from "../pp/tree";
 
-export interface PPStreamOptions extends PrettyPrintOptions {
-  renderContext?: RenderContext;
-}
+export interface PPStreamOptions extends PrettyPrintOptions {}
 export interface PPStream extends Closable {
   value: (v: unknown) => void;
   text: (s: string) => void;
 }
 
 export const pp = (opts: PPStreamOptions = {}): PPStream => {
-  const ctx = opts.renderContext ?? getCurrentContext();
+  assertPlainOptionsObject(opts as unknown, "stream.pp options");
+  validatePrettyPrintOptions(opts);
+  const ctx = resolveRenderContext(opts);
   const indentBase = " ".repeat(ctx.offset);
+  let isOpen = true;
 
   const printValue = (value: unknown) => {
+    if (!isOpen) return;
     const width = ctx.getWidth();
     const fctx: FormatContext = {
       depth: 0,
@@ -42,10 +40,8 @@ export const pp = (opts: PPStreamOptions = {}): PPStream => {
       return;
     }
 
-    if (fctx.compact && canBeCompacted(value, fctx.seen)) {
-      const compactStr =
-        Array.isArray(value) ? formatCompactArray(value) : formatCompactObject(value as object);
-      for (const line of applyTextWrapping(compactStr, width, "")) write(indentBase + line);
+    if (fctx.compact && typeof value === "object" && value !== null && canBeCompacted(value, fctx.seen)) {
+      for (const line of applyTextWrapping(formatCompactValue(value), width, "")) write(indentBase + line);
       return;
     }
 
@@ -56,11 +52,13 @@ export const pp = (opts: PPStreamOptions = {}): PPStream => {
   return {
     value: printValue,
     text: (s: string) => {
+      if (!isOpen) return;
+      assertStringArgument(s, "stream.pp text");
       const width = ctx.getWidth();
       for (const line of applyTextWrapping(s, width, "")) write(indentBase + line);
     },
     close: () => {
-      /* no-op */
+      isOpen = false;
     },
   };
 };

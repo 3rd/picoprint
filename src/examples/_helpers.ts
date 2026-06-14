@@ -1,6 +1,6 @@
 import p from "@/.";
 
-export type ExampleItem = { title: string; handler: Function };
+export type ExampleItem = { title: string; handler: () => unknown };
 
 export const printExample = (label: string, items: ExampleItem[]) => {
   p.box(
@@ -22,7 +22,7 @@ export const printExample = (label: string, items: ExampleItem[]) => {
               language: "js",
               background: p.color.bgHex("#242230"),
               title: "Code",
-              window: "rounded",
+              frame: "rounded",
               titleAlign: "left",
               borderColor: p.color.gray,
               lineNumbers: true,

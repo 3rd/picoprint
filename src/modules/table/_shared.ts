@@ -1,14 +1,14 @@
-import { stripAnsi, truncateAnsi } from "@/utils/ansi";
+import { stringWidth, truncateAnsi } from "../../utils/ansi";
 
-export { formatValueColored as formatTableCell } from "@/utils/format-value";
+export { formatValueColored as formatTableCell } from "../../utils/format-value";
 
 type CellAlignment = "center" | "left" | "right";
 
 export const padCell = (str: string, width: number, alignment: CellAlignment, padding: number) => {
-  const stripped = stripAnsi(str);
-  const truncated = stripped.length > width ? truncateAnsi(str, width) : str;
+  const strWidth = stringWidth(str);
+  const truncated = strWidth > width ? truncateAnsi(str, width) : str;
 
-  const contentWidth = stripAnsi(truncated).length;
+  const contentWidth = stringWidth(truncated);
   const totalPadding = Math.max(0, width - contentWidth);
 
   let result = " ".repeat(padding);

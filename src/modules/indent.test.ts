@@ -80,4 +80,28 @@ describe("p.indent / p.dedent (global indent control)", () => {
     expect(clean[1]).toBe("     deep"); // 5 spaces
     expect(clean[2]).toBe("shallow"); // back to 0 after removing 2 levels
   });
+
+  it("applies indentation inside p.format capture", () => {
+    const captured = p.format(() => {
+      p.log("a");
+      p.indent(4);
+      p.log("b");
+      p.dedent();
+      p.log("c");
+    });
+
+    expect(stripAnsi(captured)).toBe("a\n    b\nc");
+    expect(output).toHaveLength(0);
+  });
+
+  it("does not let dedent inside p.format pop outer indentation", () => {
+    p.indent(2);
+    p.format(() => {
+      p.dedent();
+    });
+    p.log("after");
+
+    const clean = output.map(stripAnsi);
+    expect(clean).toEqual(["  after"]);
+  });
 });

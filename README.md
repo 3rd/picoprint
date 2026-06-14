@@ -1,6 +1,8 @@
 # picoprint
 
-A tiny, fast, and feature-rich pretty printer for the terminal with zero dependencies.
+A tiny, zero-dependency pretty printer for the terminal — tables, trees, boxes, diffs, colors, code, and calendars. Output is width-aware: ANSI escapes, CJK, and emoji are all measured correctly.
+
+Requires Node.js 22+ or bun. `bat` is optional, for code syntax highlighting.
 
 ## Installation
 
@@ -12,435 +14,460 @@ pnpm add picoprint
 npm install picoprint
 ```
 
-## Quick Start
+## Importing
+
+```typescript
+// ESM / TypeScript
+import p, { c } from 'picoprint';
+
+// CommonJS
+const p = require('picoprint');
+const { c } = p;
+```
+
+Use `p` for the main API and `c` for colors, also available as `p.color` (or `p.c`). Every option and result type (`BoxOptions`, `TableOptions`, `TreeNode`, …) is exported from the package root for typed usage.
+
+## Quick start
 
 ```typescript
 import p, { c } from 'picoprint';
 
-// pretty print any value (prints AND returns string)
+// pretty print any value (prints AND returns the string)
 p({ name: 'Alice', age: 30, hobbies: ['reading', 'coding'] });
 
 // colors
 c.green.log('Success!');
 c.bgRed.white.log('ERROR');
 
-// quick logging (indent-aware)
+// log a line of values
 p.log('server', 'listening on', 3000);
 
-// capture output as string without printing
+// capture output as a string instead of printing it
 const output = p.format(() => {
   p.table([{ name: 'Alice' }, { name: 'Bob' }]);
   p.line('section');
-  p.tree(myTree);
 });
 
-// compose with callbacks
+const asyncOutput = await p.format(async () => {
+  await p.box(async () => {
+    p.log('loaded');
+  });
+});
+
+// compose renderers inside a box, then print the box
 p.box(() => {
-  p.table(data);
+  p.table([{ id: 1 }]);
   p.line();
-  p.tree(node);
 }, { style: 'rounded', padding: 1 });
 
-// indentation persists across call sites
+// p.indent() shifts everything printed after it, until p.dedent()
 p.indent(2);
 p.log('indented');
 p.dedent();
+
+// indent a single call instead, without touching global state
+p.table([{ id: 1, status: 'ok' }], { offset: 2 });
 ```
 
 ## Features
 
-- 🎨 **Rich formatting** - Colors, backgrounds, styles, gradients
-- 📦 **Box drawing** - Multiple border styles with padding and titles
-- 📊 **Tables** - Auto-formatted tables from arrays and objects
-- 🌳 **Trees** - Hierarchical tree structures with search
-- 🔍 **Diffs** - Visual object and text diffs
-- 💻 **Code highlighting** - Syntax highlighting with optional bat integration
-- 📅 **Calendars** - ASCII calendars with event markers
-- 🔄 **Streaming** - Streaming output for progressive rendering
-- 📝 **Logging** - `p.log` and chainable `.log` on colors (e.g., `p.color.yellow.log()`)
+- 🧩 **Pretty printing** - Values, Maps, Sets, and circular structures
+- 🎨 **Rich formatting** - Chainable colors, backgrounds, styles, gradients, RGB/hex, and rainbow helpers
+- 📦 **Box drawing** - Borders, titles, padding, panels, and backgrounds
+- 📊 **Tables** - Arrays, plain objects, Maps, and side-by-side comparison
+- 🌳 **Trees** - Tree rendering, object conversion, search/stats, and directory output
+- 🔍 **Diffs** - Object diffs, word diffs, and side-by-side comparison
+- 💻 **Code highlighting** - Line numbers and optional `bat` syntax highlighting
+- 📅 **Calendars** - ascii calendars with event markers
+- 🐛 **Stack traces** - Stack trace and rich error rendering
+- 🔄 **Streaming** - Progressive output for boxes, tables, trees, and pretty printing
+- 📝 **Logging and capture** - Global indentation, output capture, and styled `.log` chains
 
-### 🎨 Colors & Styling
+## 🎨 Colors and styling
 
 ```typescript
-// Basic colors
-p.color.red('Error'), p.color.green('Success'), p.color.yellow('Warning')
-p.color.bgBlue.white('Highlighted')
+// basic colors
+c.red('Error');
+c.green('Success');
+c.yellow('Warning');
+c.bgBlue.white('Highlighted');
 
-// Modifiers
-p.color.bold('Bold'), p.color.dim('Dimmed'), p.color.italic('Italic')
-p.color.underline('Underlined'), p.color.strikethrough('Strikethrough')
+// modifiers
+c.bold('Bold');
+c.bold.yellow('Bold yellow');
+c.dim('Dimmed');
+c.italic('Italic');
+c.underline('Underlined');
+c.strikethrough('Strikethrough');
 
 // 256 colors
-p.color.color256(196)('Red from 256 palette')
-p.color.bgColor256(226)('Yellow background')
+c.color256(196)('Red from 256 palette');
+c.bgColor256(226)('Yellow background');
 
-// RGB & Hex
-p.color.rgb(255, 128, 0)('Orange')
-p.color.hex('#FF5733')('Coral')
-p.color.bgRgb(0, 0, 255)('Blue background')
-p.color.bgHex('#2E86AB')('Ocean background')
+// RGB & hex
+c.rgb(255, 128, 0)('Orange');
+c.hex('#FF5733')('Coral');
+c.bgRgb(0, 0, 255)('Blue background');
+c.bgHex('#2E86AB')('Ocean background');
 
-// Gradients
-p.color.gradient('Smooth gradient text', p.color.red, p.color.blue)
-p.color.gradientRgb('RGB gradient', {r:255,g:0,b:0}, {r:0,g:0,b:255})
-p.color.gradientHex('Hex gradient', '#FF0000', '#0000FF')
+// gradients and palettes
+c.gradient('Smooth gradient text', c.red, c.blue);
+c.gradientRgb('RGB gradient', { r: 255, g: 0, b: 0 }, { r: 0, g: 0, b: 255 });
+c.gradientHex('Hex gradient', '#FF0000', '#0000FF');
+c.rainbow('Rainbow text');
+c.palette('#FF0000', 7); // 7 shades, returns string[]
 
-// Rainbow & color palettes
-p.color.rainbow('Rainbow text 🌈')
-p.color.palette('#FF0000', 7) // Generate 7 shades
-
-// Logging with styles
-p.color.yellow.log('warn:', 'disk', 95, '%')
-p.color.bold.yellow.log('ready')
-// plain log
-p.log('status', 200)
+// logging with styles
+c.yellow.log('warn:', 'disk', 95, '%');
+c.bold.yellow.log('ready');
 ```
 
-### 📦 Boxes
+Use the named export `c` for color functions and chains.
+
+## 📦 Boxes
 
 ```typescript
-// Basic box
 p.box('Content here');
 
-// Styled boxes
-p.box('Double border', { style: 'double', borderColor: p.color.green });
-p.box('Rounded box', { style: 'rounded', title: 'Info', borderColor: p.color.cyan });
+// styled boxes; styles: single, double, rounded, thick, ascii, and more
+p.box('Double border', { style: 'double', borderColor: c.green });
+p.box('Rounded box', { style: 'rounded', title: 'Info', borderColor: c.cyan });
 
-// Box styles: single, double, rounded, thick, ascii
+// panel: rounded box with padding; title goes in options
+p.box.panel('Panel content', { title: 'Title' });
 
-// Box variants
-p.box('No padding frame', { borderColor: p.color.red });
-p.box.panel('Title', 'Panel content with rounded corners');
-
-// Capture console output
-p.box(() => {
-  console.log('This output is captured');
-  console.log(p.color.green('With colors!'));
-}, { title: 'Captured', style: 'rounded' });
-
-// Box returns callback's return value
-const result = p.box(() => {
-  console.log('Computing...');
+// capture picoprint output inside the box; returns the rendered box string
+const output = p.box(() => {
+  p.log('Computing...');
   return 42;
 }, { title: 'Process' });
-// result === 42
+// output includes "Computing..." inside the box
 
-// Background colors
+// background fill
 p.box('Blue background', {
-  background: p.color.bgBlue,
+  background: c.bgBlue,
   padding: 1,
-  borderColor: p.color.white
+  borderColor: c.white,
 });
 ```
 
-### ➖ Lines
+## ➖ Lines
 
 ```typescript
-// Simple line
-p.line();
-
-// Line with label
-p.line('Section Title');
-
-// Line styles
+p.line();                       // full-width rule
+p.line('Section Title');        // rule with label
 p.line({ style: 'double' });
-p.line({ style: 'thick' });
-p.line({ style: 'dashed' });
 
-// Shortcuts
+// shortcuts
 p.line.double('Double Line');
 p.line.thick('Thick Line');
 p.line.dashed('Dashed');
+p.line.section();
 p.line.section('Section');
 
-// Gradient line
-p.line.gradient({ start: p.color.magenta, end: p.color.yellow });
+// gradient rule
+p.line.gradient({ start: c.magenta, end: c.yellow });
 
-// Custom alignment
+// label alignment
 p.line({ label: 'Left', labelAlign: 'left' });
-p.line({ label: 'Right', labelAlign: 'right' });
+p.line({ label: 'Right', labelAlign: 'right', labelColor: c.cyan });
 ```
 
-### 📊 Tables
+## 📊 Tables
 
 ```typescript
-// Array of objects
+// array of objects
 p.table([
   { name: 'Alice', age: 30, city: 'New York' },
-  { name: 'Bob', age: 25, city: 'London' }
+  { name: 'Bob', age: 25, city: 'London' },
 ]);
 
-// Object as key-value pairs
+// plain object as key-value pairs
 p.table({ host: 'localhost', port: 3000, secure: true });
 
 // Map
 p.table(new Map([['key1', 'value1'], ['key2', 'value2']]));
 
-// Table options
 p.table(data, {
-  style: 'double',      // single, double, rounded, thick, ascii
-  showIndex: true,      // Show row numbers
-  columns: ['name', 'age'], // Select columns
-  align: { price: 'right', name: 'left' },
+  style: 'double',
+  showIndex: true,
+  columns: ['name', 'age'],
+  align: { age: 'right', name: 'left' },
   compact: true,
-  maxWidth: 20
+  maxWidth: 20,
 });
 
-// Compare two objects side-by-side
+// side-by-side comparison
 p.table.compare(
   { port: 3000, host: 'localhost' },
-  { port: 8080, host: '0.0.0.0' }
+  { port: 8080, host: '0.0.0.0' },
 );
 ```
 
-### 🌳 Trees
+`p.table()` accepts arrays, plain objects, and `Map`. Array-of-object tables infer columns from all rows unless you pass `columns` explicitly. Arbitrary object instances such as `Date`, `RegExp`, `Set`, and `Promise` are rejected as top-level table records instead of rendering as empty key/value tables. `p.table.compare()` accepts `TableCompareOptions`, which reuses table layout options except `columns`; compare output always owns its `key`, `left`, `right`, and `match` columns.
+
+## 🌳 Trees
 
 ```typescript
-// Basic tree
-const tree = {
+const node = {
   name: 'root',
   children: [
     { name: 'branch1' },
-    {
-      name: 'branch2',
-      children: [
-        { name: 'leaf1' },
-        { name: 'leaf2' }
-      ]
-    }
-  ]
+    { name: 'branch2', children: [{ name: 'leaf1' }, { name: 'leaf2' }] },
+  ],
 };
-p.tree(tree);
+p.tree(node);
 
-// Tree styles: unicode, ascii, rounded, double, bold
+// styles: single (default), thick, rounded, double, ascii
+p.tree(node, { style: 'rounded', maxDepth: 3, showValues: true });
 
-// Tree with values & metadata
-p.tree(tree, {
-  showValues: true,
-  showMetadata: true,
-  maxDepth: 3,
-  style: 'rounded'
-});
+// convert a plain object to a tree
+p.tree.fromObject({ user: { name: 'Alice', settings: { theme: 'dark' } } }, 'Config');
+p.tree.fromObject({ user: { name: 'Alice' } }, { showValues: false });
+p.tree.fromObject(cyclicObject); // circular references render as [Circular]
 
-// Convert object to tree
-p.tree.fromObject({
-  user: { name: 'Alice', settings: { theme: 'dark' } }
-}, 'Config');
+// search, stats, multiple trees
+p.tree.search(node, 'leaf');
+p.tree.search(node, 'false'); // searches node names and defined values, including false/0/null
+p.tree.search(node, 'leaf', { filter: (entry) => entry.metadata?.visible !== false });
+p.tree.stats(node, { offset: 2 });
+p.tree.multi([node, node]);
+p.tree.multi([node, undefined, node]); // undefined entries are skipped and visible trees are numbered in order
 
-// Search in tree
-p.tree.search(tree, 'leaf');
-
-// Tree statistics
-p.tree.stats(tree);
-
-// Multiple trees
-p.tree.multi([tree1, tree2, tree3]);
-
-// Directory structure
-const dir = {
+// directory rendering
+p.tree.directory({
   name: 'src',
   type: 'directory',
   children: [
     { name: 'index.ts', type: 'file', size: 2048 },
-    {
-      name: 'components',
-      type: 'directory',
-      children: [
-        { name: 'Button.tsx', type: 'file', size: 1024 }
-      ]
-    }
-  ]
-};
-p.tree.directory(dir, {
-  fileIcons: true,
-  showSizes: true,
-  sortBy: 'type' // or 'name', 'size'
-});
+    { name: 'components', type: 'directory', children: [{ name: 'Button.tsx', type: 'file', size: 1024 }] },
+  ],
+}, { fileIcons: true, showSizes: true, showPaths: true, sortBy: 'type' });
 ```
 
-### 💻 Code Highlighting
+Tree-family option bags, tree node metadata, and directory entries must be plain objects; object instances such as `Date` and `RegExp` are rejected instead of treated as empty shapes. Explicit `TreeNode` and `DirectoryEntry` inputs must be acyclic trees; cyclic structures throw stable `picoprint ... circular reference` errors instead of overflowing the stack.
+
+## 💻 Code highlighting
 
 ```typescript
-// Basic syntax highlighting (uses bat if available)
 p.code('const x = 42;', 'javascript');
 
-// Code with options
 p.code(sourceCode, {
   language: 'typescript',
   lineNumbers: true,
-  window: 'rounded',      // Window border style
+  frame: 'rounded',          // border style around the code
   title: 'Example',
   titleAlign: 'center',
   padding: 1,
-  background: p.color.bgBlue,
-  borderColor: p.color.yellow,
-  titleColor: p.color.cyan
+  borderColor: c.yellow,
+  titleColor: c.cyan,
 });
 
-// Configure bat integration
-p.configure({
-  code: {
-    useBat: true,
-    batTheme: 'TwoDark'
-  }
-});
+// bat integration is off by default; enable it explicitly
+p.configure({ code: { useBat: true, batTheme: 'TwoDark' } });
 ```
 
-### 🔍 Diffs
+## 🔍 Diffs
 
 ```typescript
-// Object diff
+// visual object diff
 p.diff(
   { name: 'Alice', age: 30 },
-  { name: 'Alice', age: 31, city: 'NYC' }
+  { name: 'Alice', age: 31, city: 'NYC' },
 );
+p.diff(obj1, obj2, { showUnchanged: true, compact: false, maxDepth: 3 });
 
-// Options
-p.diff(obj1, obj2, {
-  showUnchanged: true,
-  compact: false,
-  maxDepth: 3
-});
-
-// Word diff
+// word-level diff
 p.diff.words('Hello world', 'Hello beautiful world');
-p.diff.words(text1, text2, {
-  ignoreCase: true,
-  ignoreWhitespace: true
-});
+p.diff.words(text1, text2, { ignoreCase: true, ignoreWhitespace: true });
 
-// Side-by-side comparison
-p.diff.compare(leftData, rightData);
-p.diff.compare(data1, data2, { labels: ['Dev', 'Prod'] });
+// side-by-side comparison
+p.diff.compare(leftData, rightData, { labels: ['Dev', 'Prod'] });
 
-// Deep diff (returns diff nodes)
-const changes = p.diff.deep(obj1, obj2);
+// structural diff as data (no printing)
+const changes = p.diff.nodes(obj1, obj2);
+// [{ type: 'modified', path: ['age'], pathSegments: [{ kind: 'key', key: 'age' }], key: 'age', value1: 30, value2: 31 }, ...]
 ```
 
-### 📅 Calendar
+`p.diff.words()` uses sequence matching, so inserted words do not make shifted unchanged words look deleted and re-added. `p.diff.nodes()` compares built-in values such as `Date`, `RegExp`, `Error`, `Map`, and `Set` instead of treating them as empty plain objects.
+
+Diff nodes include display `path: string[]` and typed `pathSegments` so object keys such as `"[0]"` are distinguishable from array indexes.
+
+## 📅 Calendar
 
 ```typescript
-// Current month
-p.calendar();
+p.calendar();                      // current month
+p.calendar(new Date(2024, 2));     // March 2024
+p.calendar({ showHeader: true });  // current month with options
 
-// Specific date
-p.calendar(new Date(2024, 2)); // March 2024
-
-// With options
 p.calendar(date, {
-  showHeader: true,
-  showFooter: true,
+  showHeader: true,                // off by default
   showWeekNumbers: true,
-  firstDayOfWeek: 0 // 0=Sunday, 1=Monday
-});
-
-// Calendar with events
-p.calendar(new Date(), {
+  firstDayOfWeek: 0,               // 0=Sunday, 1=Monday (default)
   events: [
-    {
-      date: new Date(2024, 2, 15),
-      label: 'Meeting',
-      color: p.color.red,
-      priority: 'high'
-    }
-  ]
+    { date: new Date(2024, 2, 15), label: 'Meeting', color: c.red, priority: 'high' },
+  ],
 });
 ```
 
-### 🔄 Streaming
+## 🔄 Streaming
 
 ```typescript
-// Stream table data
-const stream = p.stream.table();
-stream.write({ id: 1, status: 'pending' });
-stream.write({ id: 2, status: 'complete' });
-stream.close();
+// table rows as they arrive
+const rows = p.stream.table({ columns: ['id', 'status'] });
+rows.row({ id: 1, status: 'pending' });
+rows.row({ id: 2, status: 'complete' });
+rows.close();
 
-// Stream tree nodes
-const treeStream = p.stream.tree();
-treeStream.add({ name: 'node1', path: [] });
-treeStream.add({ name: 'child', path: ['node1'] });
-treeStream.close();
+// tree nodes with explicit nesting
+const nodes = p.stream.tree();
+nodes.enter('node1');
+nodes.node('child');
+nodes.kv('size', 42);
+nodes.leave();
+nodes.close();
 
-// Stream boxes
-const boxStream = p.stream.box({ title: 'Live Data' });
-boxStream.writeln('Line 1');
-boxStream.writeln('Line 2');
-boxStream.close();
+const customNodes = p.stream.tree({
+  bullet: '-',
+  indent: '  ',
+  colors: {
+    node: c.cyan,
+    value: c.yellow,
+    connector: c.gray,
+  },
+});
+customNodes.enter('');
+customNodes.node('blank parent label is still printed');
+customNodes.close();
 
-// Stream pretty printing
-const ppStream = p.stream.pp();
-ppStream.write({ data: 'value' });
-ppStream.close();
+// boxed lines
+const lines = p.stream.box({ title: 'Live Data' });
+lines.writeln('Line 1');
+lines.writeln('Line 2');
+lines.close();
+
+// pretty-printed values
+const values = p.stream.pp();
+values.value({ data: 'value' });
+values.text('done');
+values.close();
 ```
 
-### 🐛 Stack Traces
+- Stream handles print incrementally as you call their methods, and `close()` is idempotent — calls that would write after `close()` are ignored.
+- Stream constructor options must be plain objects; open-stream method arguments are validated before writing.
+- `p.stream.table()` requires a non-empty `columns: string[]` and object rows.
+- `p.stream.box()` and `p.stream.table()` honor the global `style` and `compact` defaults.
+- `p.stream.tree()` accepts `bullet`, `indent`, `colors.node/value/connector`, `offset`, and `renderContext`. `enter('')` prints an empty-label node; `enter()` with no argument only increases depth.
+
+## 🐛 Stack traces
 
 ```typescript
-// Enhanced error display
 try {
   someFunction();
 } catch (err) {
-  p.trace.error(err);   // rich error: message, type/cause, trace
-  p.trace(err);          // stack trace with framing
+  p.trace.error(err, { offset: 2 }); // rich error: message, type, cause, trace
+  p.trace(err);        // stack trace with framing
 }
 
-// Current call stack
-p.trace.callStack();
-
-// Compact stack
-p.trace.stack();
+p.trace.callStack();   // current call stack
+p.trace.callStack({ maxFrames: 3, showFiles: 'hide' }); // current stack with stack options
+p.trace.stack();       // compact stack
+p.trace.stack({ maxFrames: 3, showFiles: 'hide' }); // current stack with options
 ```
 
-### ⚙️ Configuration
+When a first argument is supplied to `p.trace.stack()`, it must be an `Error`, a stack string, or an options object.
+
+`filter` and `highlight` accept `RegExp`; global regexes are treated statelessly so `lastIndex` does not skip frames or mutate caller state.
+
+## 📝 Printing and layout
+
+Every batch renderer prints to the terminal **and** returns the rendered string, so you can use the returned value or ignore it.
+
+| Call | Prints | Returns |
+| --- | --- | --- |
+| `p(value)`, `p.log(...)`, and string-content renderers | yes | rendered string |
+| `p.box(() => ...)` and `p.box.panel(..., () => ...)` | yes | rendered string, or `Promise<string>` for async callbacks |
+| `p.format(() => ...)` | no | captured rendered string, or `Promise<string>` for async callbacks |
+| `p.stream.box/table/tree/pp(...)` | yes, incrementally as you call its methods | stream handle |
+| `p.tree.stats(node, options?)` | yes | `TreeStatsResult` with `output` containing the rendered summary |
+| `p.diff.nodes(a, b)` | no | `DiffNode[]` |
+
+Callback boxes capture output produced by picoprint calls such as `p.log`, `p.table`, and `p.tree`. They do not capture native `console.log`. Await callback boxes and panels when the callback is async.
+
+### Indentation and offset
+
+`p.indent(n?)` / `p.dedent()` manage a global left indent that applies to every following call, so output from different functions lines up. Each `p.indent(n)` adds `n` spaces (default 2); each `p.dedent()` removes the last level.
+
+`offset` does the same for a single call, without touching global state. It indents that call's **entire** output — every line of a box, table, tree, or diff — and shrinks the render width to fit:
+
+```typescript
+p.box('nested', { offset: 4 });
+p.table(rows, { offset: 4 }); // every row is indented 4 spaces
+```
+
+`offset: n` is the same as `p.indent(n)` … `p.dedent()` around a single call, with no indent stack to balance.
+
+Use `p.createContext()` / `renderContext` only when you need explicit width and offset control.
+
+### Width
+
+- `p.box()`, framed `p.code()`, and `p.stream.box()` clamp an **auto-derived** width (from the terminal, an offset, or a render context) up to the minimum needed to fit both borders, padding, and one content column.
+- An **explicitly** requested `width` that is too small throws instead of clamping.
+- Framed code with line numbers throws when there is no room for the line-number gutter.
+
+## ⚙️ Global configuration
 
 ```typescript
 p.configure({
-  // Global defaults (applied to all modules as fallback)
+  // cross-module defaults
   defaults: {
-    style: 'rounded',   // default border/line style
-    compact: true,       // default compact mode for pp/table
-    maxDepth: 5,         // default max depth for pp
+    style: 'rounded',  // default border/line style
+    compact: true,     // default compact mode for pp
+    maxDepth: 5,       // default max depth for pp
   },
-
-  // Code highlighting
+  // code rendering
   code: {
-    useBat: true,        // use bat for syntax highlighting
-    batTheme: 'TwoDark', // bat theme
-    batOptions: []       // additional bat arguments
-  }
+    useBat: true,
+    batTheme: 'TwoDark',
+    batOptions: [],
+  },
 });
 
-// Get current config
 const config = p.getConfig();
-
-// Reset to defaults
 p.resetConfig();
 ```
 
-## API
+`p.configure()` takes `ConfigureOptions`, so TypeScript callers must pass at least one top-level config section. Runtime validation still catches JavaScript misuse: `defaults.compact` and `code.useBat` must be booleans, `defaults.maxDepth` must be a non-negative integer, `code.batTheme` must be a string, and `code.batOptions` must be `string[]`. `p.getConfig()` returns a snapshot, so mutating returned arrays does not change global config.
+
+## API summary
 
 The default export `p` is both a function and an object:
 
-- `p(value, options?)` - Pretty print any value
-- `p.color.{name}(text)` - All color functions (or `import { color as c }`)
-- `p.log(...args)` - Print any args (indent-aware) and return string
-- `p.color.{name}.log(...args)` - Chain colors then print args
-- `p.box(content, options?)` - Draw boxes
-- `p.line(options?)` - Draw lines
-- `p.table(data, options?)` - Display tables
-- `p.tree(node, options?)` - Display trees
-- `p.code(code, options?)` - Syntax highlighting
-- `p.diff(a, b, options?)` - Show differences
-- `p.calendar(date?, options?)` - Display calendar
-- `p.stream.*` - Streaming variants
-- `p.indent(amount?)` - Increase global indent (default 2)
-- `p.dedent()` - Decrease by one prior `p.indent` level
-- And more...
+- `p(value, options?)` — pretty print any value; options: `{ maxDepth?, compact?, offset? }`
+- `p.log(...args)` — print args and return the rendered string, including indentation
+- `c.*` — chainable colors; `.log(...args)` on any chain
+- `p.box(content | fn, options?)`, `p.box.panel(content | fn, options?)`; async callbacks return `Promise<string>`
+- `p.line(labelOrOptions?)` and `p.line.*` shortcuts; use `labelColor` to style labels
+- `p.table(data, options?)`, `p.table.compare(left, right)`
+- `p.tree(node, options?)` and `p.tree.fromObject/multi/search/stats/directory`
+- `p.code(source, languageOrOptions?)`; use `frame: boolean | LineStyleName` for bordered code
+- `p.diff(a, b, options?)`, `p.diff.words(a, b, options?)`, `p.diff.compare(a, b, options?)`, `p.diff.nodes(a, b)`
+- `p.calendar(options?)` or `p.calendar(date?, options?)`
+- `p.trace(err, options?)`, `p.trace.stack(options?)` or `p.trace.stack(err?, options?)`, `p.trace.error(err, options?)`, and `p.trace.callStack(options?)` with `StackOptions`
+- `p.stream.box/table/tree/pp`
+- `p.format(fn)` — capture picoprint output produced by `fn`, print nothing; async callbacks return `Promise<string>`
+- `p.indent(amount?)` / `p.dedent()` — global indentation; each `indent` pushes one level (default 2 spaces), each `dedent` pops one level
+- `p.configure(options)` / `p.getConfig()` / `p.resetConfig()`
+- Most renderers accept `offset?: number` to indent that one call's whole output; use `p.createContext(offset?)` for advanced render context control
 
-Note on indentation levels: each call to `p.indent(amount?)` pushes one level by the specified space amount (default 2). `p.dedent()` removes exactly one prior level per call; call it repeatedly to pop multiple levels.
+## Troubleshooting
 
-## Requirements
-
-- Node.js 22+
-- Optional: `bat` for enhanced syntax highlighting
+- **No colors:** picoprint respects terminal color support. Check `NO_COLOR`, `TERM=dumb`, and whether stdout is a TTY.
+- **Invalid style option:** style options use finite names such as `single`, `rounded`, `double`, `thick`, and `ascii`. Unknown style strings throw a stable `TypeError`.
+- **Invalid layout, helper argument, or data shape:** option bags and nested record options such as table `align` must be plain objects unless a documented string shorthand is allowed. Widths, padding, offsets, render contexts, indent amounts, booleans, alignment names, gradient line options, line separator objects, table columns, table rows, table data records, table comparison objects, diff labels, code sources and titles, diff word inputs, trace regex options, stream method arguments, tree nodes, tree metadata, directory entries, and calendar events are validated before rendering. `p.format()` requires a callback.
+- **Invalid color option:** renderer color options expect functions, not strings. `borderColor`, `titleColor`, and `labelColor` accept functions such as `c.cyan`.
+- **Invalid background option:** `background` expects a background function such as `c.bgBlue`, not a foreground function like `c.blue`.
+- **Invalid color helper input:** `color256`, `bgColor256`, `rgb`, `bgRgb`, `hex`, `bgHex`, `gradient`, `gradientRgb`, `gradientHex`, `rainbow`, and `palette` validate their text, color, channel, hex, and count inputs before checking terminal color support.
+- **Invalid calendar event:** `events` must be an array of `{ date: Date, label: string }`; event colors must be foreground color functions.
+- **Invalid config:** `p.configure()` validates section objects and field types before storing global defaults.
+- **Code is not syntax highlighted by `bat`:** `bat` is disabled by default. Install `bat` on `PATH` and enable it with `p.configure({ code: { useBat: true } })`. If `bat` is unavailable, picoprint falls back to plain code rendering.

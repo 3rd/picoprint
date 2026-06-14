@@ -84,7 +84,7 @@ printExample("Basic Tree Examples", [
 
 printExample("Tree Styles", [
   {
-    title: "Unicode (default)",
+    title: "Single (default)",
     handler: () => {
       const styleTree: TreeNode = {
         name: "Root",
@@ -100,7 +100,7 @@ printExample("Tree Styles", [
           { name: "Branch 3" },
         ],
       };
-      p.tree(styleTree, { style: "unicode" });
+      p.tree(styleTree, { style: "single" });
     },
   },
   {
@@ -165,7 +165,7 @@ printExample("Tree Styles", [
     },
   },
   {
-    title: "Bold",
+    title: "Thick",
     handler: () => {
       const styleTree: TreeNode = {
         name: "Root",
@@ -181,7 +181,7 @@ printExample("Tree Styles", [
           { name: "Branch 3" },
         ],
       };
-      p.tree(styleTree, { style: "bold" });
+      p.tree(styleTree, { style: "thick" });
     },
   },
 ]);
@@ -662,7 +662,7 @@ printExample("Tree Search", [
     },
   },
   {
-    title: "Search for 'q'",
+    title: "Search for visible reports",
     handler: () => {
       const searchTree: TreeNode = {
         name: "Documents",
@@ -678,9 +678,9 @@ printExample("Tree Search", [
           {
             name: "Reports",
             children: [
-              { name: "Q1Report", value: "q1-2024" },
-              { name: "Q2Report", value: "q2-2024" },
-              { name: "AnnualReport", value: "annual-2024" },
+              { name: "Q1Report", value: "q1-2024", metadata: { visible: true } },
+              { name: "Q2Report", value: "q2-2024", metadata: { visible: false } },
+              { name: "AnnualReport", value: "annual-2024", metadata: { visible: true } },
             ],
           },
           {
@@ -692,7 +692,10 @@ printExample("Tree Search", [
           },
         ],
       };
-      p.tree.search(searchTree, "q", { showValues: true });
+      p.tree.search(searchTree, "Report", {
+        showValues: true,
+        filter: (node) => node.name === "Documents" || node.metadata?.visible !== false,
+      });
     },
   },
 ]);

@@ -191,6 +191,20 @@ describe("pp", () => {
   });
 
   describe("options via configure", () => {
+    it("throws stable errors for invalid options", () => {
+      expect(() => pp({ a: 1 }, null as never)).toThrow("picoprint pp options must be an object");
+      expect(() => pp({ a: 1 }, new Date() as never)).toThrow(
+        "picoprint pp options must be an object",
+      );
+      expect(() => pp({ a: 1 }, { maxDepth: -1 })).toThrow(
+        "picoprint maxDepth must be a non-negative integer",
+      );
+      expect(() => pp({ a: 1 }, { compact: "yes" as never })).toThrow(
+        "picoprint compact must be a boolean",
+      );
+      expect(logOutput).toHaveLength(0);
+    });
+
     it("should respect maxDepth from config", () => {
       configure({ defaults: { maxDepth: 2 } });
 
@@ -246,6 +260,79 @@ describe("pp", () => {
         expect(childLine).toMatch(/[─│└├]/);
         expect(grandchildLine).toMatch(/[─│└├]/);
       }
+    });
+  });
+
+  describe("maps and sets", () => {
+    it("should render Map entries in compact mode", () => {
+      pp(
+        new Map([
+          ["x", 1],
+          ["y", 2],
+        ]),
+      );
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("Map(2)");
+      expect(output).toContain("x");
+      expect(output).toContain("1");
+      expect(output).toContain("y");
+      expect(output).toContain("2");
+    });
+
+    it("should render Set items in compact mode", () => {
+      pp(new Set([1, 2, 3]));
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("Set(3)");
+      expect(output).toContain("1");
+      expect(output).toContain("3");
+    });
+
+    it("should render Map entries as a tree when not compact", () => {
+      pp(new Map([["k", { deep: { x: 1 } }]]), { compact: false });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("k");
+      expect(output).toContain("deep");
+      expect(output).toContain("x");
+    });
+
+    it("should render empty Map and Set distinctly", () => {
+      pp(new Map(), { compact: false });
+      pp(new Set(), { compact: false });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("Map(0)");
+      expect(output).toContain("Set(0)");
+    });
+  });
+
+  describe("options argument", () => {
+    it("should enforce maxDepth from the options argument", () => {
+      pp({ a: { b: { c: { d: { e: 1 } } } } }, { maxDepth: 2, compact: false });
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("...");
+      expect(output).not.toContain("e:");
+    });
+
+    it("should respect compact: false from the options argument", () => {
+      pp({ a: 1, b: 2 }, { compact: false });
+
+      const output = logOutput.join("\n");
+      expect(output).toMatch(/[└├]/);
+    });
+
+    it("should render circular markers indented under their branch", () => {
+      const value: Record<string, unknown> = { name: "n" };
+      value.self = value;
+      pp(value, { compact: false });
+
+      const circularLine = logOutput.find((line) => line.includes("[Circular]"));
+      expect(circularLine).toBeDefined();
+      // indented under its branch, not flush-left
+      expect(circularLine?.startsWith("[Circular]")).toBe(false);
     });
   });
 });

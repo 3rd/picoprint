@@ -1,16 +1,31 @@
 import { spawnSync } from "child_process";
-import type { BackgroundColorFunction, ForegroundColorFunction } from "@/utils/colors";
-import type { LineStyleName } from "@/utils/line-styles";
-import { stripAnsi } from "@/utils/ansi";
-import { applyBgToSegments, getBackgroundOrIdentity } from "@/utils/background";
-import { applyTextWrapping } from "@/utils/string";
-import { getTerminalWidth } from "@/utils/terminal";
-import { renderAndReturn, write } from "@/utils/writer";
+import { stringWidth } from "../../utils/ansi";
+import { applyBgToSegments, getBackgroundOrIdentity } from "../../utils/background";
+import {
+  assertBackgroundColorOption,
+  assertColorFunctionOption,
+  assertForegroundColorOption,
+  type BackgroundColorOption,
+  type ForegroundColorOption,
+} from "../../utils/colors";
+import { assertLineStyleOption, type LineStyleName } from "../../utils/line-styles";
+import {
+  ALIGN_VALUES,
+  assertBooleanOption,
+  assertEnumOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertStringArgument,
+  assertStringOption,
+} from "../../utils/options";
+import { applyTextWrapping } from "../../utils/string";
+import { getTerminalWidth } from "../../utils/terminal";
+import { renderAndReturn, write } from "../../utils/writer";
 import { box } from "../box";
-import { BORDER_WIDTH } from "../box/_shared";
+import { assertBoxWidth, BORDER_WIDTH, clampBoxWidth } from "../box/_shared";
 import { dim } from "../colors";
 import { getConfig } from "../config";
-import { getCurrentContext, type RenderContext } from "../context";
+import { type RenderOptions, resolveRenderContext } from "../context";
 
 const BAT_COMMAND = "bat";
 const BAT_ARGS_BASE = ["--style=plain", "--color=always", "--paging=never"];
@@ -19,23 +34,62 @@ const MARKDOWN_FENCE = "```";
 const LINE_NUMBER_SEPARATOR = " │";
 
 export interface CodeOptions {
+  offset?: RenderOptions["offset"];
   language?: string;
+  frame?: LineStyleName | boolean;
+  /** @deprecated use frame */
   window?: LineStyleName | boolean;
+  /** @deprecated use frame */
+  style?: LineStyleName | boolean;
   title?: string;
   titleAlign?: "center" | "left" | "right";
-  background?: BackgroundColorFunction;
-  borderColor?: ForegroundColorFunction;
+  background?: BackgroundColorOption;
+  borderColor?: ForegroundColorOption;
   titleColor?: (text: string) => string;
   lineNumbers?: boolean;
   padding?: number;
   paddingX?: number;
   paddingY?: number;
   width?: number;
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
 
-/** @internal mutable state for bat availability cache */
-export const _batState = { available: undefined as boolean | undefined };
+const _batState = { available: undefined as boolean | undefined };
+
+const validateCodeOptions = (options: CodeOptions) => {
+  assertStringOption(options.language, "language");
+  if (options.frame !== undefined && typeof options.frame !== "boolean" && typeof options.frame !== "string") {
+    throw new TypeError("picoprint frame must be a boolean or style name");
+  }
+  if (options.window !== undefined && typeof options.window !== "boolean" && typeof options.window !== "string") {
+    throw new TypeError("picoprint window must be a boolean or style name");
+  }
+  if (options.style !== undefined && typeof options.style !== "boolean" && typeof options.style !== "string") {
+    throw new TypeError("picoprint style must be a boolean or style name");
+  }
+  if (typeof options.frame === "string") assertLineStyleOption(options.frame, "frame");
+  if (typeof options.window === "string") assertLineStyleOption(options.window, "window");
+  if (typeof options.style === "string") assertLineStyleOption(options.style, "style");
+  assertStringOption(options.title, "title");
+  assertEnumOption(options.titleAlign, "titleAlign", ALIGN_VALUES);
+  assertBooleanOption(options.lineNumbers, "lineNumbers");
+  assertNonNegativeIntegerOption(options.padding, "padding");
+  assertNonNegativeIntegerOption(options.paddingX, "paddingX");
+  assertNonNegativeIntegerOption(options.paddingY, "paddingY");
+  assertNonNegativeIntegerOption(options.width, "width");
+  assertForegroundColorOption(options.borderColor, "borderColor");
+  assertBackgroundColorOption(options.background, "background");
+  assertColorFunctionOption(options.titleColor, "titleColor");
+};
+
+// test seams for the bat availability cache
+export const _resetBatCache = () => {
+  _batState.available = undefined;
+};
+
+export const _setBatAvailable = (value: boolean) => {
+  _batState.available = value;
+};
 
 const isBatAvailable = () => {
   const config = getConfig();
@@ -100,7 +154,6 @@ const getHighlightedCode = (codeString: string, language?: string, targetWidth?:
     }
   }
 
-  // fallback
   return codeString.split("\n");
 };
 
@@ -122,12 +175,20 @@ const getLineNumberGutterWidth = (lineCount: number, paddingAfter: number) => {
   return numWidth + sepWidth + (paddingAfter >= 0 ? paddingAfter : 0);
 };
 
-// fallback
+const getFrameStyle = (opts: CodeOptions): LineStyleName | undefined => {
+  const frame = opts.frame ?? opts.window ?? opts.style;
+  if (!frame) return undefined;
+  return typeof frame === "string" ? frame : (getConfig().defaults?.style ?? "single");
+};
+
 const displayFallback = (codeString: string, options: CodeOptions) => {
   const opts = typeof options === "string" ? { language: options } : options || {};
   const language = opts.language;
+  const ctx = resolveRenderContext(opts);
+  const indent = " ".repeat(ctx.offset);
+  const frameStyle = getFrameStyle(opts);
 
-  if (opts.window) {
+  if (frameStyle) {
     let lines = codeString.split("\n");
 
     if (opts.lineNumbers) {
@@ -136,11 +197,8 @@ const displayFallback = (codeString: string, options: CodeOptions) => {
     }
 
     const content = lines.join("\n");
-    const styleKey =
-      typeof opts.window === "string" ? opts.window : (getConfig().defaults?.style ?? "single");
-
     box(content, {
-      style: styleKey,
+      style: frameStyle,
       borderColor: opts.borderColor,
       background: opts.background,
       title: opts.title,
@@ -150,7 +208,7 @@ const displayFallback = (codeString: string, options: CodeOptions) => {
       paddingX: opts.paddingX ?? opts.padding ?? 0,
       paddingY: opts.paddingY ?? opts.padding ?? 0,
       width: opts.width,
-      renderContext: opts.renderContext,
+      renderContext: ctx,
     });
   } else {
     let lines = codeString.split("\n");
@@ -161,36 +219,54 @@ const displayFallback = (codeString: string, options: CodeOptions) => {
 
     if (opts.lineNumbers) {
       for (const line of lines) {
-        write(line);
+        write(indent + line);
       }
     } else {
       const marker = `${MARKDOWN_FENCE}${language || ""}`;
-      write(dim(marker));
-      write(codeString);
-      write(dim(MARKDOWN_FENCE));
+      write(indent + dim(marker));
+      if (ctx.offset === 0) {
+        write(codeString);
+      } else {
+        for (const line of codeString.split("\n")) write(indent + line);
+      }
+      write(indent + dim(MARKDOWN_FENCE));
     }
   }
 };
 
-// eslint-disable-next-line sonarjs/cognitive-complexity -- heavy code renderer
 export const code = (codeString: string, options?: CodeOptions | string) =>
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- heavy code renderer
   renderAndReturn(() => {
-    const opts = typeof options === "string" ? { language: options } : options || {};
-    const ctx = opts.renderContext ?? getCurrentContext();
+    assertStringArgument(codeString, "code source");
+    if (options !== undefined && typeof options !== "string") {
+      assertPlainOptionsObject(options, "code options");
+    }
+    const opts: CodeOptions = typeof options === "string" ? { language: options } : (options ?? {});
+    validateCodeOptions(opts);
+    const ctx = resolveRenderContext(opts);
+    const indent = " ".repeat(ctx.offset);
+    const frameStyle = getFrameStyle(opts);
 
-    // with box
-    if (opts.window) {
-      const widthForWindow = opts.width ?? ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
-      const innerWidthForWindow = Math.max(0, widthForWindow - BORDER_WIDTH);
+    if (frameStyle) {
       const paddingX = opts.paddingX ?? opts.padding ?? 0;
-      const baseContentWidth = Math.max(0, innerWidthForWindow - paddingX * 2);
+      let frameWidth = opts.width ?? ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
+      if (opts.width !== undefined) assertBoxWidth(frameWidth, paddingX);
+      else frameWidth = clampBoxWidth(frameWidth, paddingX);
+      const innerFrameWidth = Math.max(0, frameWidth - BORDER_WIDTH);
+      const baseContentWidth = Math.max(0, innerFrameWidth - paddingX * 2);
 
       let targetWidth = baseContentWidth;
       if (opts.lineNumbers) {
         // first pass to get number of wrapped lines without gutter
         const prelim = getHighlightedCode(codeString, opts.language, Math.max(1, baseContentWidth));
         const gutter = getLineNumberGutterWidth(prelim.length, paddingX);
-        targetWidth = Math.max(1, baseContentWidth - gutter);
+        const minimumWidth = BORDER_WIDTH + paddingX * 2 + gutter + 1;
+        if (frameWidth < minimumWidth) {
+          throw new RangeError(
+            `picoprint width must be at least ${minimumWidth} when lineNumbers is true`,
+          );
+        }
+        targetWidth = baseContentWidth - gutter;
       }
 
       let lines = getHighlightedCode(codeString, opts.language, Math.max(1, targetWidth));
@@ -211,11 +287,8 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
 
       // draw in box
       const content = lines.join("\n");
-      const styleKey =
-        typeof opts.window === "string" ? opts.window : (getConfig().defaults?.style ?? "single");
-
       box(content, {
-        style: styleKey,
+        style: frameStyle,
         borderColor: opts.borderColor,
         background: opts.background,
         title: opts.title,
@@ -225,7 +298,7 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
         paddingX: opts.paddingX ?? opts.padding ?? 0,
         paddingY: opts.paddingY ?? opts.padding ?? 0,
         width: opts.width,
-        renderContext: opts.renderContext,
+        renderContext: ctx,
       });
     } else {
       // no box
@@ -235,11 +308,7 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
           // background rendering +  padding
           const paddingX = opts.paddingX ?? opts.padding ?? 1;
           const paddingY = opts.paddingY ?? opts.padding ?? 1;
-          const ctxWidth =
-            opts.renderContext?.getWidth() ??
-            getCurrentContext().getWidth() ??
-            getTerminalWidth() ??
-            DEFAULT_TERMINAL_WIDTH;
+          const ctxWidth = ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
           let contentWidth = Math.max(0, ctxWidth - paddingX * 2);
 
           // reduce content width by gutter if line numbers enabled
@@ -266,22 +335,22 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
 
           // top padding lines
           for (let i = 0; i < paddingY; i++) {
-            write(bgFn(" ".repeat(ctxWidth)));
+            write(indent + bgFn(" ".repeat(ctxWidth)));
           }
 
           // content lines with left/right padding and background
           for (const line of lines) {
-            const strippedLength = stripAnsi(line).length;
+            const strippedLength = stringWidth(line);
             const fillNeeded = Math.max(0, ctxWidth - strippedLength - paddingX * 2);
             const leftPad = bgFn(" ".repeat(paddingX));
             const body = applyBgToSegments(line, bgFn);
             const rightPad = bgFn(" ".repeat(paddingX + fillNeeded));
-            write(leftPad + body + rightPad);
+            write(indent + leftPad + body + rightPad);
           }
 
           // bottom padding lines
           for (let i = 0; i < paddingY; i++) {
-            write(bgFn(" ".repeat(ctxWidth)));
+            write(indent + bgFn(" ".repeat(ctxWidth)));
           }
         } else {
           displayFallback(codeString, opts);
@@ -310,33 +379,29 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
 
       const bgFn = getBackgroundOrIdentity(opts.background);
       if (opts.background) {
-        const ctxWidth =
-          opts.renderContext?.getWidth() ??
-          getCurrentContext().getWidth() ??
-          getTerminalWidth() ??
-          DEFAULT_TERMINAL_WIDTH;
+        const ctxWidth = ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
 
         // top padding
         for (let i = 0; i < paddingY; i++) {
-          write(bgFn(" ".repeat(ctxWidth)));
+          write(indent + bgFn(" ".repeat(ctxWidth)));
         }
 
         // content with left/right padding
         for (const line of lines) {
-          const strippedLength = stripAnsi(line).length;
+          const strippedLength = stringWidth(line);
           const fill = Math.max(0, ctxWidth - strippedLength - paddingX * 2);
           const leftPad = bgFn(" ".repeat(paddingX));
           const body = applyBgToSegments(line, bgFn);
           const rightPad = bgFn(" ".repeat(paddingX + fill));
-          write(leftPad + body + rightPad);
+          write(indent + leftPad + body + rightPad);
         }
 
         // bottom padding
         for (let i = 0; i < paddingY; i++) {
-          write(bgFn(" ".repeat(ctxWidth)));
+          write(indent + bgFn(" ".repeat(ctxWidth)));
         }
       } else {
-        for (const line of lines) write(line);
+        for (const line of lines) write(indent + line);
       }
     }
   });

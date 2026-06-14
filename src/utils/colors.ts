@@ -1,6 +1,11 @@
 export type ColorFunction = (str: number | string) => string;
 export type ForegroundColorFunction = ColorFunction & { readonly __kind: "fg" };
 export type BackgroundColorFunction = ColorFunction & { readonly __kind: "bg" };
+export type ColorOptionFunction = (str: string) => string;
+export type ForegroundColorOption = ColorOptionFunction & { readonly __kind?: "fg" };
+export type BackgroundColorOption = ColorOptionFunction & { readonly __kind?: "bg" };
+type ColorKind = "bg" | "fg";
+type RgbValue = { r: number; g: number; b: number };
 
 export const isColorSupported = () => {
   if (process.env.NO_COLOR) return false;
@@ -33,13 +38,109 @@ const formatter = (open: string, close: string, replace: string = open) => {
   };
 };
 
-export const createColors = (enabled = isColorSupported()) => {
+const disabledColor = (): ColorFunction => String;
+
+const brandFg = (fn: ColorFunction): ForegroundColorFunction =>
+  Object.assign(fn, { __kind: "fg" as const });
+
+const brandBg = (fn: ColorFunction): BackgroundColorFunction =>
+  Object.assign(fn, { __kind: "bg" as const });
+
+const assertByteChannel = (value: unknown, optionName: string) => {
+  if (typeof value !== "number") {
+    throw new TypeError(`picoprint ${optionName} must be a number`);
+  }
+  if (!Number.isInteger(value) || value < 0 || value > 255) {
+    throw new RangeError(`picoprint ${optionName} must be an integer from 0 to 255, got ${value}`);
+  }
+  return value;
+};
+
+const assertStringValue = (value: unknown, optionName: string) => {
+  if (typeof value !== "string") {
+    throw new TypeError(`picoprint ${optionName} must be a string`);
+  }
+  return value;
+};
+
+const assertColorFunction = (value: unknown, optionName: string): ColorFunction => {
+  if (typeof value !== "function") {
+    throw new TypeError(`picoprint ${optionName} must be a function`);
+  }
+  return value as ColorFunction;
+};
+
+const assertPaletteCount = (value: unknown) => {
+  if (typeof value !== "number") {
+    throw new TypeError("picoprint palette count must be a number");
+  }
+  if (!Number.isInteger(value) || value < 0) {
+    throw new RangeError(`picoprint palette count must be a non-negative integer, got ${value}`);
+  }
+  return value;
+};
+
+const assertRgbValue = (value: unknown, optionName: string): RgbValue => {
+  if (!value || typeof value !== "object") {
+    throw new TypeError(`picoprint ${optionName} must be an object with r, g, and b`);
+  }
+  const rgbValue = value as Partial<RgbValue>;
+  return {
+    r: assertByteChannel(rgbValue.r, `${optionName}.r`),
+    g: assertByteChannel(rgbValue.g, `${optionName}.g`),
+    b: assertByteChannel(rgbValue.b, `${optionName}.b`),
+  };
+};
+
+export const getColorKind = (value: unknown): ColorKind | undefined => {
+  if (typeof value !== "function") return undefined;
+  return (value as { readonly __kind?: ColorKind }).__kind;
+};
+
+const assertFunctionOption = (value: unknown, optionName: string) => {
+  if (value === undefined) return false;
+  if (typeof value !== "function") throw new TypeError(`picoprint ${optionName} must be a function`);
+  return true;
+};
+
+export const assertColorFunctionOption = (value: unknown, optionName: string) => {
+  assertFunctionOption(value, optionName);
+};
+
+export const assertForegroundColorOption = (value: unknown, optionName: string) => {
+  if (!assertFunctionOption(value, optionName)) return;
+  if (getColorKind(value) === "bg") {
+    throw new TypeError(
+      `picoprint ${optionName} must be a foreground color function, got a background color function`,
+    );
+  }
+};
+
+export const assertBackgroundColorOption = (value: unknown, optionName: string) => {
+  if (!assertFunctionOption(value, optionName)) return;
+  if (getColorKind(value) === "fg") {
+    throw new TypeError(
+      `picoprint ${optionName} must be a background color function, got a foreground color function`,
+    );
+  }
+};
+
+const resolveColorSupport = (enabled?: boolean) => enabled ?? isColorSupported();
+
+const supportedFormatter = (
+  open: string,
+  close: string,
+  replace?: string,
+  enabled?: boolean,
+): ColorFunction => {
+  const color = formatter(open, close, replace);
+  const plain = disabledColor();
+  return (input) => (resolveColorSupport(enabled) ? color(input) : plain(input));
+};
+
+export const createColors = (enabled?: boolean) => {
   const wrap = (open: string, close: string, replace?: string): ColorFunction =>
-    enabled ? formatter(open, close, replace) : String;
-  const brandFg = (fn: ColorFunction): ForegroundColorFunction =>
-    Object.assign(fn, { __kind: "fg" as const });
-  const brandBg = (fn: ColorFunction): BackgroundColorFunction =>
-    Object.assign(fn, { __kind: "bg" as const });
+    supportedFormatter(open, close, replace, enabled);
   return {
     // modifiers
     reset: brandFg(wrap("\u001b[0m", "\u001b[0m")),
@@ -99,47 +200,31 @@ export const createColors = (enabled = isColorSupported()) => {
 export const colors = createColors();
 
 export const color256 = (code: number): ForegroundColorFunction => {
-  if (code < 0 || code > 255) {
-    throw new Error(`Color code must be between 0 and 255, got ${code}`);
-  }
-  const enabled = isColorSupported();
-  return (
-    enabled ?
-      formatter(`\u001b[38;5;${code}m`, "\u001b[39m")
-    : (String as unknown as ColorFunction)) as ForegroundColorFunction;
+  const colorCode = assertByteChannel(code, "color256 code");
+  return brandFg(supportedFormatter(`\u001b[38;5;${colorCode}m`, "\u001b[39m"));
 };
 
 export const bgColor256 = (code: number): BackgroundColorFunction => {
-  if (code < 0 || code > 255) {
-    throw new Error(`Color code must be between 0 and 255, got ${code}`);
-  }
-  const enabled = isColorSupported();
-  return (
-    enabled ?
-      formatter(`\u001b[48;5;${code}m`, "\u001b[49m")
-    : (String as unknown as ColorFunction)) as BackgroundColorFunction;
+  const colorCode = assertByteChannel(code, "bgColor256 code");
+  return brandBg(supportedFormatter(`\u001b[48;5;${colorCode}m`, "\u001b[49m"));
 };
 
 export const rgb = (r: number, g: number, b: number): ForegroundColorFunction => {
-  if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
-    throw new Error(`RGB values must be between 0 and 255`);
-  }
-  const enabled = isColorSupported();
-  return (
-    enabled ?
-      formatter(`\u001b[38;2;${r};${g};${b}m`, "\u001b[39m")
-    : (String as unknown as ColorFunction)) as ForegroundColorFunction;
+  const red = assertByteChannel(r, "rgb r");
+  const green = assertByteChannel(g, "rgb g");
+  const blue = assertByteChannel(b, "rgb b");
+  return brandFg(
+    supportedFormatter(`\u001b[38;2;${red};${green};${blue}m`, "\u001b[39m"),
+  );
 };
 
 export const bgRgb = (r: number, g: number, b: number): BackgroundColorFunction => {
-  if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
-    throw new Error(`RGB values must be between 0 and 255`);
-  }
-  const enabled = isColorSupported();
-  return (
-    enabled ?
-      formatter(`\u001b[48;2;${r};${g};${b}m`, "\u001b[49m")
-    : (String as unknown as ColorFunction)) as BackgroundColorFunction;
+  const red = assertByteChannel(r, "bgRgb r");
+  const green = assertByteChannel(g, "bgRgb g");
+  const blue = assertByteChannel(b, "bgRgb b");
+  return brandBg(
+    supportedFormatter(`\u001b[48;2;${red};${green};${blue}m`, "\u001b[49m"),
+  );
 };
 
 export const hexToRgb = (hex: string) => {
@@ -154,26 +239,32 @@ export const hexToRgb = (hex: string) => {
   };
 };
 
+const assertHexColor = (value: unknown, optionName: string) => {
+  const hexColor = assertStringValue(value, optionName);
+  const rgbVal = hexToRgb(hexColor);
+  if (!rgbVal) {
+    throw new TypeError(`picoprint ${optionName} must be a 6-digit hex color, got ${hexColor}`);
+  }
+  return rgbVal;
+};
+
 export const rgbToHex = (r: number, g: number, b: number) => {
   // eslint-disable-next-line no-bitwise
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 };
 
 export const hex = (hexColor: string): ForegroundColorFunction => {
-  const rgbVal = hexToRgb(hexColor);
-  if (!rgbVal) {
-    throw new Error(`Invalid hex color: ${hexColor}`);
-  }
+  const rgbVal = assertHexColor(hexColor, "hex color");
   return rgb(rgbVal.r, rgbVal.g, rgbVal.b);
 };
 
 export const bgHex = (hexColor: string): BackgroundColorFunction => {
-  const rgbVal = hexToRgb(hexColor);
-  if (!rgbVal) {
-    throw new Error(`Invalid hex color: ${hexColor}`);
-  }
+  const rgbVal = assertHexColor(hexColor, "bgHex color");
   return bgRgb(rgbVal.r, rgbVal.g, rgbVal.b);
 };
+
+// neutral key color shared by pp, table, and stream formatters
+export const keyColor: ForegroundColorFunction = colors.white;
 
 export const getTypeColor = (type: string): ColorFunction => {
   switch (type) {
@@ -219,6 +310,7 @@ export const getTypeColor = (type: string): ColorFunction => {
 };
 
 export const rainbow = (text: string) => {
+  const value = assertStringValue(text, "rainbow text");
   const enabled = isColorSupported();
   const colorFuncs = enabled ? createColors(true) : createColors(false);
   const rainbowColors = [
@@ -230,7 +322,7 @@ export const rainbow = (text: string) => {
     colorFuncs.magenta,
   ];
 
-  return text
+  return value
     .split("")
     .map((char, i) => {
       if (char === " ") return char;
@@ -257,42 +349,42 @@ export const gradientRgb = (
   startRgb: { r: number; g: number; b: number },
   endRgb: { r: number; g: number; b: number },
 ) => {
+  const value = assertStringValue(text, "gradientRgb text");
+  const start = assertRgbValue(startRgb, "gradientRgb start");
+  const end = assertRgbValue(endRgb, "gradientRgb end");
   const enabled = isColorSupported();
-  if (!enabled) return text;
+  if (!enabled) return value;
 
-  const length = text.length;
+  const length = value.length;
   if (length === 0) return "";
-  if (length === 1) return rgb(startRgb.r, startRgb.g, startRgb.b)(text);
+  if (length === 1) return rgb(start.r, start.g, start.b)(value);
 
-  return text
+  return value
     .split("")
     .map((char, i) => {
       if (char === " " || char === "\t" || char === "\n") return char;
 
       const ratio = i / (length - 1);
-      const interpolated = interpolateRgb(startRgb, endRgb, ratio);
+      const interpolated = interpolateRgb(start, end, ratio);
       return rgb(interpolated.r, interpolated.g, interpolated.b)(char);
     })
     .join("");
 };
 
 export const gradientHex = (text: string, startHex: string, endHex: string) => {
-  const startRgb = hexToRgb(startHex);
-  const endRgb = hexToRgb(endHex);
+  const value = assertStringValue(text, "gradientHex text");
+  const startRgb = assertHexColor(startHex, "gradientHex start");
+  const endRgb = assertHexColor(endHex, "gradientHex end");
 
-  if (!startRgb) {
-    throw new Error(`Invalid start hex color: ${startHex}`);
-  }
-  if (!endRgb) {
-    throw new Error(`Invalid end hex color: ${endHex}`);
-  }
-
-  return gradientRgb(text, startRgb, endRgb);
+  return gradientRgb(value, startRgb, endRgb);
 };
 
-export const gradient = (text: string, startColor: ColorFunction, endColor: ColorFunction) => {
+export const gradient = (text: string, startColor: ColorOptionFunction, endColor: ColorOptionFunction) => {
+  const value = assertStringValue(text, "gradient text");
+  const startFn = assertColorFunction(startColor, "gradient start");
+  const endFn = assertColorFunction(endColor, "gradient end");
   const enabled = isColorSupported();
-  if (!enabled) return text;
+  if (!enabled) return value;
 
   const defaultColors: Record<string, { r: number; g: number; b: number }> = {
     black: { r: 0, g: 0, b: 0 },
@@ -357,25 +449,24 @@ export const gradient = (text: string, startColor: ColorFunction, endColor: Colo
     return null;
   };
 
-  const startRgb = getColorRgb(startColor);
-  const endRgb = getColorRgb(endColor);
+  const startRgb = getColorRgb(startFn);
+  const endRgb = getColorRgb(endFn);
 
   if (!startRgb || !endRgb) {
-    if (text.length === 0) return "";
-    return startColor(text);
+    if (value.length === 0) return "";
+    return startFn(value);
   }
 
-  return gradientRgb(text, startRgb, endRgb);
+  return gradientRgb(value, startRgb, endRgb);
 };
 
 export const createColorPalette = (baseColor: string, count = 5) => {
+  const rgbVal = assertHexColor(baseColor, "palette color");
+  const colorCount = assertPaletteCount(count);
   const palette: string[] = [];
-  const rgbVal = hexToRgb(baseColor);
 
-  if (!rgbVal) return [baseColor];
-
-  for (let i = 0; i < count; i++) {
-    const factor = (i + 1) / count;
+  for (let i = 0; i < colorCount; i++) {
+    const factor = (i + 1) / colorCount;
     const r = Math.round(rgbVal.r + (255 - rgbVal.r) * factor);
     const g = Math.round(rgbVal.g + (255 - rgbVal.g) * factor);
     const b = Math.round(rgbVal.b + (255 - rgbVal.b) * factor);

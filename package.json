@@ -1,7 +1,7 @@
 {
   "name": "picoprint",
-  "version": "2.0.0",
-  "description": "A tiny, fast, and feature-rich pretty printer for the terminal with zero dependencies",
+  "version": "2.1.0",
+  "description": "Tiny zero-dependency pretty printer for the terminal",
   "author": "3rd",
   "type": "module",
   "repository": {
@@ -26,14 +26,14 @@
     "tree",
     "box"
   ],
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
@@ -44,10 +44,11 @@
     "build": "bun run build:clean && bun run build:esm && bun run build:cjs && bun run build:types",
     "build:clean": "rm -rf dist",
     "build:esm": "bun build src/index.ts --outfile=dist/index.mjs --format=esm --target=node",
-    "build:cjs": "bun build src/index.ts --outfile=dist/index.js --format=cjs --target=node",
-    "build:types": "tsc --project tsconfig.build.json",
-    "prepublishOnly": "bun run build",
+    "build:cjs": "bun build src/index.ts --outfile=dist/index.cjs --format=cjs --target=node && bun scripts/fix-cjs-default.mjs",
+    "build:types": "tsc --project tsconfig.build.json && bun scripts/fix-dts-imports.mjs",
+    "prepublishOnly": "bun run test:package",
     "test": "bun test",
+    "test:package": "bun run build && node scripts/package-smoke.mjs",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
     "typecheck": "tsc --noEmit",

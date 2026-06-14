@@ -1,19 +1,29 @@
-import { renderAndReturn, write } from "@/utils/writer";
-import type { RenderContext } from "../context";
-import { colors } from "../colors";
-import { getCurrentContext } from "../context";
+import type { RenderOptions } from "../context";
+import { assertColorFunctionOption, colors } from "../../utils/colors";
+import {
+  assertBooleanOption,
+  assertEnumOption,
+  assertFunctionOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertStringOption,
+  isPlainRecord,
+} from "../../utils/options";
+import { renderAndReturn, write } from "../../utils/writer";
+import { resolveRenderContext } from "../context";
 
 export interface TreeNode {
   name: string;
-  children?: TreeNode[];
+  children?: readonly TreeNode[];
   value?: unknown;
   metadata?: Record<string, unknown>;
   expanded?: boolean;
 }
 
-export type TreeStyleName = "ascii" | "bold" | "double" | "rounded" | "unicode";
+export type TreeStyleName = "ascii" | "double" | "rounded" | "single" | "thick";
 
 export interface TreeOptions {
+  offset?: RenderOptions["offset"];
   style?: TreeStyleName;
   showValues?: boolean;
   showMetadata?: boolean;
@@ -27,7 +37,7 @@ export interface TreeOptions {
     metadata?: (s: string) => string;
     connector?: (s: string) => string;
   };
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
 
 interface ResolvedTreeOptions {
@@ -50,18 +60,19 @@ export interface DirectoryEntry {
   name: string;
   type: "directory" | "file";
   size?: number;
-  children?: DirectoryEntry[];
+  children?: readonly DirectoryEntry[];
   path?: string;
 }
 
 export interface DirectoryOptions {
+  offset?: RenderOptions["offset"];
   showSizes?: boolean;
   showPaths?: boolean;
   sortBy?: "name" | "size" | "type";
   fileIcons?: boolean;
   maxDepth?: number;
   filter?: (entry: DirectoryEntry) => boolean;
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
 
 const BYTES_IN_KB = 1024;
@@ -71,7 +82,7 @@ const BYTES_IN_GB = 1024 * 1024 * 1024;
 const DEFAULT_MAX_DEPTH = 10;
 
 const DEFAULT_TREE_OPTIONS: ResolvedTreeOptions = {
-  style: "unicode",
+  style: "single",
   showValues: false,
   showMetadata: false,
   maxDepth: DEFAULT_MAX_DEPTH,
@@ -86,8 +97,115 @@ const DEFAULT_TREE_OPTIONS: ResolvedTreeOptions = {
   },
 };
 
+const TREE_STYLE_NAMES = ["ascii", "double", "rounded", "single", "thick"] as const;
+const DIRECTORY_ENTRY_TYPES = ["directory", "file"] as const;
+const DIRECTORY_SORT_NAMES = ["name", "size", "type"] as const;
+
+const assertTreeStyleOption = (value: unknown, optionName: string) => {
+  assertEnumOption(value, optionName, TREE_STYLE_NAMES);
+};
+
+const assertDirectorySortOption = (value: unknown, optionName: string) => {
+  assertEnumOption(value, optionName, DIRECTORY_SORT_NAMES);
+};
+
+const assertDirectoryEntryType = (value: unknown, optionName: string) => {
+  assertEnumOption(value, optionName, DIRECTORY_ENTRY_TYPES);
+};
+
+const assertRequiredString = (value: unknown, optionName: string) => {
+  if (typeof value !== "string") throw new TypeError(`picoprint ${optionName} must be a string`);
+};
+
+function assertRequiredObject(value: unknown, optionName: string): asserts value is Record<string, unknown> {
+  if (!isPlainRecord(value)) throw new TypeError(`picoprint ${optionName} must be an object`);
+}
+
+function assertTreeNode(
+  value: unknown,
+  optionName: string,
+  seen: WeakSet<object> = new WeakSet(),
+): asserts value is TreeNode {
+  assertRequiredObject(value, optionName);
+  const node = value;
+  if (seen.has(node)) throw new TypeError(`picoprint ${optionName} contains a circular reference`);
+  seen.add(node);
+  assertRequiredString(node.name, `${optionName}.name`);
+  assertBooleanOption(node.expanded, `${optionName}.expanded`);
+  if (node.metadata !== undefined) assertPlainOptionsObject(node.metadata, `${optionName}.metadata`);
+  try {
+    if (node.children === undefined) return;
+    if (!Array.isArray(node.children)) throw new TypeError(`picoprint ${optionName}.children must be TreeNode[]`);
+    for (const [index, child] of node.children.entries()) {
+      assertTreeNode(child, `${optionName}.children[${index}]`, seen);
+    }
+  } finally {
+    seen.delete(node);
+  }
+}
+
+function assertTreeNodeArray(value: unknown, optionName: string): asserts value is readonly (TreeNode | undefined)[] {
+  if (!Array.isArray(value)) throw new TypeError(`picoprint ${optionName} must be TreeNode[]`);
+  const seen = new WeakSet<object>();
+  for (const [index, node] of value.entries()) {
+    if (node !== undefined) assertTreeNode(node, `${optionName}[${index}]`, seen);
+  }
+}
+
+function assertDirectoryEntry(
+  value: unknown,
+  optionName: string,
+  seen: WeakSet<object> = new WeakSet(),
+): asserts value is DirectoryEntry {
+  assertRequiredObject(value, optionName);
+  const entry = value;
+  if (seen.has(entry)) throw new TypeError(`picoprint ${optionName} contains a circular reference`);
+  seen.add(entry);
+  assertRequiredString(entry.name, `${optionName}.name`);
+  assertDirectoryEntryType(entry.type, `${optionName}.type`);
+  assertNonNegativeIntegerOption(entry.size, `${optionName}.size`);
+  assertStringOption(entry.path, `${optionName}.path`);
+  try {
+    if (entry.children === undefined) return;
+    if (!Array.isArray(entry.children)) {
+      throw new TypeError(`picoprint ${optionName}.children must be DirectoryEntry[]`);
+    }
+    for (const [index, child] of entry.children.entries()) {
+      assertDirectoryEntry(child, `${optionName}.children[${index}]`, seen);
+    }
+  } finally {
+    seen.delete(entry);
+  }
+}
+
+const validateTreeOptions = (options: TreeOptions) => {
+  assertPlainOptionsObject(options, "tree options");
+  assertTreeStyleOption(options.style, "tree style");
+  assertBooleanOption(options.showValues, "showValues");
+  assertBooleanOption(options.showMetadata, "showMetadata");
+  assertNonNegativeIntegerOption(options.maxDepth, "maxDepth");
+  assertFunctionOption(options.filter, "filter");
+  assertFunctionOption(options.sort, "sort");
+  assertBooleanOption(options.collapseEmpty, "collapseEmpty");
+  assertPlainOptionsObject(options.colors, "tree.colors");
+  assertColorFunctionOption(options.colors?.node, "tree.colors.node");
+  assertColorFunctionOption(options.colors?.value, "tree.colors.value");
+  assertColorFunctionOption(options.colors?.metadata, "tree.colors.metadata");
+  assertColorFunctionOption(options.colors?.connector, "tree.colors.connector");
+};
+
+const validateDirectoryOptions = (options: DirectoryOptions) => {
+  assertPlainOptionsObject(options, "tree.directory options");
+  assertBooleanOption(options.showSizes, "showSizes");
+  assertBooleanOption(options.showPaths, "showPaths");
+  assertBooleanOption(options.fileIcons, "fileIcons");
+  assertNonNegativeIntegerOption(options.maxDepth, "maxDepth");
+  assertFunctionOption(options.filter, "filter");
+  assertDirectorySortOption(options.sortBy, "sortBy");
+};
+
 const treeStyles = {
-  unicode: {
+  single: {
     branch: "├── ",
     lastBranch: "└── ",
     vertical: "│   ",
@@ -111,7 +229,7 @@ const treeStyles = {
     vertical: "║   ",
     empty: "    ",
   },
-  bold: {
+  thick: {
     branch: "┣━━ ",
     lastBranch: "┗━━ ",
     vertical: "┃   ",
@@ -205,7 +323,7 @@ const renderTreeNode = ({
   node: TreeNode;
   prefix: string;
   isLast: boolean;
-  style: typeof treeStyles.unicode;
+  style: typeof treeStyles.single;
   options: ResolvedTreeOptions;
   depth?: number;
 }): string[] => {
@@ -295,7 +413,7 @@ const renderDirectoryEntry = (
   }
 
   const lines = [];
-  const style = treeStyles.unicode;
+  const style = treeStyles.single;
   const connector = colors.dim(isLast ? style.lastBranch : style.branch);
 
   let line = `${prefix}${connector}`;
@@ -355,6 +473,8 @@ const resolveTreeOptions = (options: TreeOptions): ResolvedTreeOptions => ({
 
 export const tree = (treeNode: TreeNode, options: TreeOptions = {}) =>
   renderAndReturn(() => {
+    assertTreeNode(treeNode, "tree node");
+    validateTreeOptions(options);
     const opts = resolveTreeOptions(options);
 
     const lines = renderTreeNode({
@@ -365,20 +485,22 @@ export const tree = (treeNode: TreeNode, options: TreeOptions = {}) =>
       options: opts,
     });
 
-    const ctx = options.renderContext ?? getCurrentContext();
+    const ctx = resolveRenderContext(options);
     const indent = " ".repeat(ctx.offset);
 
     for (const line of lines) write(indent + line);
   });
 
-export const treeMulti = (trees: (TreeNode | undefined)[], options: TreeOptions = {}) =>
+export const treeMulti = (trees: readonly (TreeNode | undefined)[], options: TreeOptions = {}) =>
   renderAndReturn(() => {
-    const ctx = options.renderContext ?? getCurrentContext();
+    assertTreeNodeArray(trees, "tree.multi nodes");
+    validateTreeOptions(options);
+    const ctx = resolveRenderContext(options);
     const indent = " ".repeat(ctx.offset);
 
-    for (const [i, treeNode] of trees.entries()) {
-      if (!treeNode) continue;
+    const visibleTrees = trees.filter((treeNode): treeNode is TreeNode => treeNode !== undefined);
 
+    for (const [i, treeNode] of visibleTrees.entries()) {
       write(indent + colors.magenta(`Tree ${i + 1}: ${treeNode.name}`));
 
       const opts = resolveTreeOptions(options);
@@ -392,7 +514,7 @@ export const treeMulti = (trees: (TreeNode | undefined)[], options: TreeOptions 
       });
       for (const line of lines) write(indent + line);
 
-      if (i < trees.length - 1) {
+      if (i < visibleTrees.length - 1) {
         write("");
       }
     }
@@ -400,6 +522,8 @@ export const treeMulti = (trees: (TreeNode | undefined)[], options: TreeOptions 
 
 export const directory = (dir: DirectoryEntry, options: DirectoryOptions = {}) =>
   renderAndReturn(() => {
+    assertDirectoryEntry(dir, "tree.directory entry");
+    validateDirectoryOptions(options);
     const opts = {
       showSizes: true,
       showPaths: false,
@@ -412,13 +536,13 @@ export const directory = (dir: DirectoryEntry, options: DirectoryOptions = {}) =
 
     const lines = renderDirectoryEntry(dir, "", true, opts);
 
-    const ctx = options.renderContext ?? getCurrentContext();
+    const ctx = resolveRenderContext(options);
     const indent = " ".repeat(ctx.offset);
 
     for (const line of lines) write(indent + line);
   });
 
-const objectToTree = (obj: unknown, name: string): TreeNode => {
+const objectToTree = (obj: unknown, name: string, seen: WeakSet<object> = new WeakSet()): TreeNode => {
   if (obj === null || obj === undefined) {
     return { name, value: obj };
   }
@@ -427,56 +551,84 @@ const objectToTree = (obj: unknown, name: string): TreeNode => {
     return { name, value: obj };
   }
 
-  if (Array.isArray(obj)) {
-    return {
-      name: `${name} [${obj.length}]`,
-      children: obj.map((item, index) => objectToTree(item, `[${index}]`)),
-    };
-  }
-
   if (obj instanceof Date) {
     return { name, value: obj.toISOString() };
   }
 
-  if (obj instanceof Map) {
+  if (seen.has(obj)) return { name, value: "[Circular]" };
+  seen.add(obj);
+
+  try {
+    if (Array.isArray(obj)) {
+      return {
+        name: `${name} [${obj.length}]`,
+        children: obj.map((item, index) => objectToTree(item, `[${index}]`, seen)),
+      };
+    }
+
+    if (obj instanceof Map) {
+      return {
+        name: `${name} Map(${obj.size})`,
+        children: Array.from(obj.entries()).map(([key, value]) => objectToTree(value, String(key), seen)),
+      };
+    }
+
+    if (obj instanceof Set) {
+      return {
+        name: `${name} Set(${obj.size})`,
+        children: Array.from(obj).map((value, index) => objectToTree(value, `{${index}}`, seen)),
+      };
+    }
+
+    const entries = Object.entries(obj as Record<string, unknown>);
+
     return {
-      name: `${name} Map(${obj.size})`,
-      children: Array.from(obj.entries()).map(([key, value]) => objectToTree(value, String(key))),
+      name: `${name} {${entries.length}}`,
+      children: entries.map(([key, value]) => objectToTree(value, key, seen)),
     };
+  } finally {
+    seen.delete(obj);
   }
-
-  if (obj instanceof Set) {
-    return {
-      name: `${name} Set(${obj.size})`,
-      children: Array.from(obj).map((value, index) => objectToTree(value, `{${index}}`)),
-    };
-  }
-
-  const entries = Object.entries(obj as Record<string, unknown>);
-
-  return {
-    name: `${name} {${entries.length}}`,
-    children: entries.map(([key, value]) => objectToTree(value, key)),
-  };
 };
 
-export const treeFromObject = (obj: unknown, name = "root", options: TreeOptions = {}) => {
-  return tree(objectToTree(obj, name), { showValues: true, ...options });
+const resolveTreeFromObjectArgs = (nameOrOptions: unknown, options: TreeOptions) => {
+  if (nameOrOptions === undefined) return { name: "root", options };
+  if (typeof nameOrOptions === "string") return { name: nameOrOptions, options };
+  if (isPlainRecord(nameOrOptions)) {
+    return { name: "root", options: nameOrOptions as TreeOptions };
+  }
+  throw new TypeError("picoprint tree.fromObject second argument must be a name string or options object");
 };
+
+export function treeFromObject(obj: unknown, options?: TreeOptions): string;
+export function treeFromObject(obj: unknown, name?: string, options?: TreeOptions): string;
+export function treeFromObject(obj: unknown, nameOrOptions: TreeOptions | string = "root", options: TreeOptions = {}) {
+  const resolved = resolveTreeFromObjectArgs(nameOrOptions, options);
+  validateTreeOptions(resolved.options);
+  return tree(objectToTree(obj, resolved.name), {
+    showValues: true,
+    ...resolved.options,
+  });
+}
 
 const isNodeMatchingSearch = (node: TreeNode, searchTerm: string): boolean => {
   const lowerSearchTerm = searchTerm.toLowerCase();
   const nameMatch = node.name.toLowerCase().includes(lowerSearchTerm);
-  const valueMatch = node.value && String(node.value).toLowerCase().includes(lowerSearchTerm);
+  const valueMatch = node.value !== undefined && String(node.value).toLowerCase().includes(lowerSearchTerm);
   const hasMatchingChild = node.children?.some((child) => child && isNodeMatchingSearch(child, searchTerm));
 
   return nameMatch || Boolean(valueMatch) || Boolean(hasMatchingChild);
 };
 
 export const treeSearch = (treeNode: TreeNode, searchTerm: string, options: TreeOptions = {}) => {
+  assertTreeNode(treeNode, "tree.search node");
+  assertRequiredString(searchTerm, "tree.search query");
+  assertPlainOptionsObject(options as unknown, "tree.search options");
+  validateTreeOptions(options);
+  const userFilter = options.filter;
   return tree(treeNode, {
     ...options,
-    filter: (node) => isNodeMatchingSearch(node, searchTerm),
+    filter: (node) => isNodeMatchingSearch(node, searchTerm) && (!userFilter || userFilter(node)),
   });
 };
 
@@ -488,10 +640,9 @@ export interface TreeStatsResult {
   output: string;
 }
 
-export const treeStats = (
-  treeNode: TreeNode,
-  options: { renderContext?: RenderContext } = {},
-): TreeStatsResult => {
+export const treeStats = (treeNode: TreeNode, options: RenderOptions = {}): TreeStatsResult => {
+  assertTreeNode(treeNode, "tree.stats node");
+  assertPlainOptionsObject(options as unknown, "tree.stats options");
   let nodeCount = 0;
   let leafCount = 0;
   let maxDepth = 0;
@@ -515,7 +666,7 @@ export const treeStats = (
   traverse(treeNode);
 
   const output = renderAndReturn(() => {
-    const ctx2 = options.renderContext ?? getCurrentContext();
+    const ctx2 = resolveRenderContext(options);
     const indent2 = " ".repeat(ctx2.offset);
     write(`${indent2}${colors.gray("Total nodes:")} ${colors.yellow(nodeCount.toString())}`);
     write(`${indent2}${colors.gray("Leaf nodes:")} ${colors.green(leafCount.toString())}`);

@@ -1,7 +1,18 @@
-import { stripAnsi, truncateAnsi } from "@/utils/ansi";
-import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
+import { stringWidth, truncateAnsi } from "../../utils/ansi";
+import { getLineStyle, type LineStyleName } from "../../utils/line-styles";
 
 export const BORDER_WIDTH = 2;
+
+const minBoxWidth = (paddingX = 0) => BORDER_WIDTH + paddingX * 2 + 1;
+
+export const assertBoxWidth = (width: number, paddingX = 0, message = "width") => {
+  const minimumWidth = minBoxWidth(paddingX);
+  if (width >= minimumWidth) return;
+  const paddingDetail = paddingX > 0 ? ` for paddingX ${paddingX}` : "";
+  throw new RangeError(`picoprint ${message} must be at least ${minimumWidth}${paddingDetail}`);
+};
+
+export const clampBoxWidth = (width: number, paddingX = 0) => Math.max(width, minBoxWidth(paddingX));
 
 interface BorderOptions {
   width: number;
@@ -24,11 +35,13 @@ export const buildTopBorder = (options: BorderOptions) => {
   }
 
   const titleWithSpaces = ` ${title} `;
-  const titleLength = stripAnsi(titleWithSpaces).length;
+  const titleLength = stringWidth(titleWithSpaces);
 
   if (titleLength >= innerWidth) {
     const truncated = truncateAnsi(titleWithSpaces, Math.max(0, innerWidth));
-    return colorFn(style.topLeft + truncated + style.topRight);
+    const displayTruncated = titleColor ? titleColor(truncated) : truncated;
+    const line = colorFn(style.topLeft) + displayTruncated + colorFn(style.topRight);
+    return background ? background(line) : line;
   }
 
   const remainingWidth = innerWidth - titleLength;

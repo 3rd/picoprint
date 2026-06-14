@@ -237,31 +237,3 @@ printExample("Color Palettes", [
     },
   },
 ]);
-
-// Type colors
-printExample("Type Colors", [
-  {
-    title: "Type colors",
-    handler: () => {
-      p.log(p.color.bold("Type colors:"));
-      const types = [
-        "string",
-        "number",
-        "boolean",
-        "null",
-        "undefined",
-        "symbol",
-        "function",
-        "date",
-        "regexp",
-        "error",
-        "array",
-        "object",
-      ];
-      for (const type of types) {
-        const colorFn = p.color.typeColor(type);
-        p.log(`${type.padEnd(10)} → ${colorFn(type)}`);
-      }
-    },
-  },
-]);

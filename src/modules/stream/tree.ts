@@ -1,25 +1,34 @@
-import { colors, keyColor } from "@/modules/colors";
-import { getCurrentContext, type RenderContext } from "@/modules/context";
-import {
-  canBeCompacted,
-  formatCompactArray,
-  formatCompactObject,
-  formatPrimitive,
-} from "@/modules/pp/formatters";
-import { formatWithTree } from "@/modules/pp/tree";
-import { applyTextWrapping } from "@/utils/string";
-import { isSimpleValue } from "@/utils/value-helpers";
-import { write } from "@/utils/writer";
+import type { FormatContext } from "../pp/types";
 import type { Closable } from "./_shared";
-import { TREE_MARGIN, visibleLen } from "./_shared";
+import { stringWidth } from "../../utils/ansi";
+import { assertColorFunctionOption, colors, keyColor } from "../../utils/colors";
+import {
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertStringArgument,
+  assertStringOption,
+} from "../../utils/options";
+import { applyTextWrapping } from "../../utils/string";
+import { isSimpleValue } from "../../utils/value-helpers";
+import { write } from "../../utils/writer";
+import { type RenderOptions, resolveRenderContext } from "../context";
+import { canBeCompacted, formatCompactValue, formatPrimitive } from "../pp/formatters";
+import { formatWithTree } from "../pp/tree";
+import { TREE_MARGIN } from "./_shared";
 
 export interface TreeStreamOptions {
+  offset?: RenderOptions["offset"];
   bullet?: string; // default "•"
   indent?: string; // default "│ "
+  colors?: {
+    node?: (s: string) => string;
+    value?: (s: string) => string;
+    connector?: (s: string) => string;
+  };
   nodeColor?: (s: string) => string; // default colors.cyan
   valueColor?: (s: string) => string; // default colors.yellow
   connectorColor?: (s: string) => string; // default colors.dim
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
 export interface TreeStream extends Closable {
   node: (text: string) => void; // print a node at current depth
@@ -28,16 +37,31 @@ export interface TreeStream extends Closable {
   kv: (key: string, value: unknown) => void; // key/value helper (compact when possible)
 }
 
+const validateTreeStreamOptions = (options: TreeStreamOptions) => {
+  assertPlainOptionsObject(options, "stream.tree options");
+  assertStringOption(options.bullet, "bullet");
+  assertStringOption(options.indent, "indent");
+  assertPlainOptionsObject(options.colors, "stream.tree colors");
+  assertColorFunctionOption(options.colors?.node, "stream.tree colors.node");
+  assertColorFunctionOption(options.colors?.value, "stream.tree colors.value");
+  assertColorFunctionOption(options.colors?.connector, "stream.tree colors.connector");
+  assertColorFunctionOption(options.nodeColor, "nodeColor");
+  assertColorFunctionOption(options.valueColor, "valueColor");
+  assertColorFunctionOption(options.connectorColor, "connectorColor");
+};
+
 export const tree = (options: TreeStreamOptions = {}): TreeStream => {
-  const ctx = options.renderContext ?? getCurrentContext();
+  validateTreeStreamOptions(options);
+  const ctx = resolveRenderContext(options);
   const indentBase = " ".repeat(ctx.offset);
   const bullet = options.bullet ?? "•";
   const indentUnit = options.indent ?? "│ ";
-  const nodeColor = options.nodeColor ?? colors.cyan;
-  const valueColor = options.valueColor ?? colors.yellow;
-  const connectorColor = options.connectorColor ?? colors.dim;
+  const nodeColor = options.colors?.node ?? options.nodeColor ?? colors.cyan;
+  const valueColor = options.colors?.value ?? options.valueColor ?? colors.yellow;
+  const connectorColor = options.colors?.connector ?? options.connectorColor ?? colors.dim;
 
   let depth = 0;
+  let isOpen = true;
 
   const prefix = () => connectorColor(indentUnit.repeat(depth));
 
@@ -45,8 +69,8 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
     const width = ctx.getWidth();
     const p = prefix();
     const headColored = connectorColor(head);
-    const avail = Math.max(1, width - visibleLen(p + headColored) - TREE_MARGIN);
-    const wrapIndent = p + " ".repeat(visibleLen(head));
+    const avail = Math.max(1, width - stringWidth(p + headColored) - TREE_MARGIN);
+    const wrapIndent = p + " ".repeat(stringWidth(head));
     const wrapped = applyTextWrapping(contentColored, avail, wrapIndent);
     write(indentBase + p + headColored + (wrapped[0] ?? ""));
     for (let i = 1; i < wrapped.length; i++) write(indentBase + wrapped[i]!);
@@ -54,16 +78,26 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
 
   return {
     node: (text: string) => {
+      if (!isOpen) return;
+      assertStringArgument(text, "stream.tree node text");
       printlnWrapped(`${bullet} `, nodeColor(text));
     },
     enter: (text?: string) => {
-      if (text) printlnWrapped(`${bullet} `, nodeColor(text));
+      if (!isOpen) return;
+      if (text !== undefined) {
+        assertStringArgument(text, "stream.tree enter text");
+        printlnWrapped(`${bullet} `, nodeColor(text));
+      }
       depth = Math.max(0, depth + 1);
     },
     leave: (count = 1) => {
+      if (!isOpen) return;
+      assertNonNegativeIntegerOption(count, "stream.tree leave count");
       depth = Math.max(0, depth - count);
     },
     kv: (key: string, value: unknown) => {
+      if (!isOpen) return;
+      assertStringArgument(key, "stream.tree kv key");
       const width = ctx.getWidth();
       const keyStr = keyColor(key);
       const seen = new WeakSet<object>();
@@ -75,7 +109,7 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
 
       if (Array.isArray(value)) {
         if (canBeCompacted(value, seen)) {
-          printlnWrapped(`${bullet} `, `${keyStr}: ${formatCompactArray(value)}`);
+          printlnWrapped(`${bullet} `, `${keyStr}: ${formatCompactValue(value)}`);
         } else {
           const valueText = colors.cyan(`[Array(${value.length})]`);
           printlnWrapped(`${bullet} `, `${keyStr}: ${valueText}`);
@@ -85,15 +119,14 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
 
       if (typeof value === "object" && value !== null) {
         if (canBeCompacted(value, seen)) {
-          printlnWrapped(`${bullet} `, `${keyStr}: ${formatCompactObject(value as object)}`);
+          printlnWrapped(`${bullet} `, `${keyStr}: ${formatCompactValue(value)}`);
         } else {
           printlnWrapped(`${bullet} `, `${keyStr}: ${colors.cyan("[Object]")}`);
         }
         return;
       }
 
-      // fallback
-      const fctx: import("@/modules/pp/types").FormatContext = {
+      const fctx: FormatContext = {
         depth: 0,
         maxDepth: Number.POSITIVE_INFINITY,
         seen: new WeakSet(),
@@ -108,7 +141,7 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
       }
     },
     close: () => {
-      /* no-op */
+      isOpen = false;
     },
   };
 };

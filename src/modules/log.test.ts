@@ -30,12 +30,32 @@ describe("p.log and chainable .log", () => {
     expect(stripAnsi(output[0] || "")).toContain("alpha 42 true");
   });
 
+  it("p.log returns the exact rendered string including indentation", () => {
+    p.indent(2);
+    const res = p.log("alpha\nbeta");
+
+    expect(stripAnsi(res)).toBe("  alpha\n  beta");
+    expect(stripAnsi(output.join("\n"))).toBe(stripAnsi(res));
+
+    p.dedent();
+  });
+
   it("p.color.yellow.log styles all args and prints once", () => {
     const res = p.color.yellow.log("hello", 123);
     expect(typeof res).toBe("string");
     expect(output).toHaveLength(1);
     const first = stripAnsi(output[0] || "");
     expect(first).toContain("hello 123");
+  });
+
+  it("chainable color .log returns the exact rendered string including indentation", () => {
+    p.indent(2);
+    const res = p.color.yellow.log("hello\nworld");
+
+    expect(stripAnsi(res)).toBe("  hello\n  world");
+    expect(stripAnsi(output.join("\n"))).toBe(stripAnsi(res));
+
+    p.dedent();
   });
 
   it("p.color.bold.yellow.log composes and styles", () => {

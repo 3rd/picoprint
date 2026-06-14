@@ -63,14 +63,7 @@ test-coverage: ## run tests with coverage
 
 build: ## build library
 	$(call print_mod_start,${MAGENTA}Build:${RESET} library)
-	$(call print_mod,${CYAN}clean${RESET} dist)
-	@rm -rf dist
-	$(call print_mod,${CYAN}build${RESET} esm)
-	@bun build src/index.ts --outfile=dist/index.mjs --format=esm --target=node
-	$(call print_mod,${CYAN}build${RESET} cjs)
-	@bun build src/index.ts --outfile=dist/index.js --format=cjs --target=node
-	$(call print_mod,${CYAN}build${RESET} types)
-	@tsc --project tsconfig.build.json
+	@bun run build
 	$(call print_mod,${GREEN}✓${RESET} built)
 	$(call print_mod_end)
 

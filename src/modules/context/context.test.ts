@@ -7,6 +7,7 @@ import {
   increaseIndent,
   popContext,
   pushContext,
+  resolveRenderContext,
 } from "./context";
 
 type ColumnsGetter = () => number | undefined;
@@ -45,8 +46,13 @@ describe("RenderContext", () => {
       expect(ctx.offset).toBe(10);
     });
 
-    it("throws error for negative offset", () => {
-      expect(() => createContext(-1)).toThrow("RenderContext offset cannot be negative");
+    it("throws stable errors for invalid offset", () => {
+      expect(() => createContext(-1)).toThrow(
+        "picoprint offset must be a non-negative finite number",
+      );
+      expect(() => createContext("2" as never)).toThrow(
+        "picoprint offset must be a non-negative finite number",
+      );
     });
   });
 
@@ -82,6 +88,17 @@ describe("RenderContext", () => {
       expect(nested.offset).toBe(14);
     });
 
+    it("throws stable errors for invalid indent amounts", () => {
+      const ctx = createContext(10);
+
+      expect(() => ctx.indent(-1)).toThrow(
+        "picoprint indent amount must be a non-negative finite number",
+      );
+      expect(() => ctx.indent("2" as never)).toThrow(
+        "picoprint indent amount must be a non-negative finite number",
+      );
+    });
+
     it("can chain multiple indents", () => {
       const ctx = createContext().indent().indent(3).indent(1);
       expect(ctx.offset).toBe(6); // 0 + 2 + 3 + 1
@@ -100,6 +117,56 @@ describe("RenderContext", () => {
       const ctx = createContext().withOffset(100);
       expect(ctx.offset).toBe(100);
       expect(ctx.getWidth()).toBe(1);
+    });
+
+    it("throws stable errors for invalid additional offsets", () => {
+      const ctx = createContext();
+
+      expect(() => ctx.withOffset(-1)).toThrow(
+        "picoprint offset must be a non-negative finite number",
+      );
+      expect(() => ctx.withOffset("2" as never)).toThrow(
+        "picoprint offset must be a non-negative finite number",
+      );
+    });
+  });
+
+  describe("resolveRenderContext", () => {
+    it("adds simple offset to a supplied render context", () => {
+      const base = createContext(4);
+      const resolved = resolveRenderContext({ renderContext: base, offset: 3 });
+
+      expect(resolved.offset).toBe(7);
+      expect(resolved.getWidth()).toBe(73);
+      expect(base.offset).toBe(4);
+    });
+
+    it("throws stable errors for invalid offset options", () => {
+      expect(() => resolveRenderContext({ offset: -1 })).toThrow(
+        "picoprint offset must be a non-negative finite number",
+      );
+      expect(() => resolveRenderContext({ offset: "2" as never })).toThrow(
+        "picoprint offset must be a non-negative finite number",
+      );
+    });
+
+    it("throws stable errors for malformed render contexts", () => {
+      expect(() => resolveRenderContext({ renderContext: null as never })).toThrow(
+        "picoprint renderContext must be a RenderContext",
+      );
+      expect(() => resolveRenderContext({ renderContext: { offset: 0 } as never })).toThrow(
+        "picoprint renderContext must be a RenderContext",
+      );
+      expect(() =>
+        resolveRenderContext({
+          renderContext: {
+            getWidth: () => 80,
+            indent: createContext().indent,
+            offset: "0",
+            withOffset: createContext().withOffset,
+          } as never,
+        }),
+      ).toThrow("picoprint renderContext.offset must be a non-negative finite number");
     });
   });
 
@@ -157,6 +224,15 @@ describe("RenderContext", () => {
       increaseIndent(4);
       expect(getCurrentContext().offset).toBe(before + 4);
       decreaseIndent();
+    });
+
+    it("increaseIndent throws stable errors for invalid amounts", () => {
+      expect(() => increaseIndent(-1)).toThrow(
+        "picoprint indent amount must be a non-negative finite number",
+      );
+      expect(() => increaseIndent("2" as never)).toThrow(
+        "picoprint indent amount must be a non-negative finite number",
+      );
     });
 
     it("decreaseIndent restores previous offset", () => {

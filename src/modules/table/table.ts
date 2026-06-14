@@ -1,27 +1,70 @@
-import { stripAnsi } from "@/utils/ansi";
-import { getLineStyle, type LineStyleName } from "@/utils/line-styles";
-import { renderAndReturn, write } from "@/utils/writer";
-import type { RenderContext } from "../context";
-import { colors, keyColor } from "../colors";
+import type { RenderOptions } from "../context";
+import { stringWidth } from "../../utils/ansi";
+import { colors, keyColor } from "../../utils/colors";
+import { assertLineStyleOption, getLineStyle, type LineStyleName } from "../../utils/line-styles";
+import {
+  ALIGN_VALUES,
+  assertBooleanOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+  assertStringArrayOption,
+  assertStringRecordEnumOption,
+  isPlainRecord,
+} from "../../utils/options";
+import { renderAndReturn, write } from "../../utils/writer";
 import { getConfig } from "../config";
-import { getCurrentContext } from "../context";
+import { resolveRenderContext } from "../context";
 import { formatTableCell, padCell } from "./_shared";
 
 export interface TableOptions {
-  columns?: string[];
+  offset?: RenderOptions["offset"];
+  columns?: readonly string[];
   maxWidth?: number;
   align?: Record<string, "center" | "left" | "right">;
   showIndex?: boolean;
   compact?: boolean;
   style?: LineStyleName;
-  renderContext?: RenderContext;
+  renderContext?: RenderOptions["renderContext"];
 }
 
-export type TableData = Map<unknown, unknown> | Record<string, unknown> | unknown[];
+export type TableData = Map<unknown, unknown> | Record<string, unknown> | readonly unknown[];
+export type TableCompareOptions = Omit<TableOptions, "columns">;
+
+const validateTableOptions = (options: TableOptions) => {
+  assertStringArrayOption(options.columns, "columns");
+  assertNonNegativeIntegerOption(options.maxWidth, "maxWidth");
+  assertStringRecordEnumOption(options.align, "align", ALIGN_VALUES);
+  assertBooleanOption(options.showIndex, "showIndex");
+  assertBooleanOption(options.compact, "compact");
+  assertLineStyleOption(options.style, "style");
+};
+
+const validateTableData = (data: TableData) => {
+  if (Array.isArray(data) || data instanceof Map) return;
+  if (isPlainRecord(data)) return;
+  throw new TypeError("picoprint table data must be an array, plain object, or Map");
+};
+
+function assertCompareObject(value: unknown, optionName: string): asserts value is Record<string, unknown> {
+  if (!isPlainRecord(value)) {
+    throw new TypeError(`picoprint table.compare ${optionName} must be a plain object`);
+  }
+}
+
+const inferObjectColumns = (rows: Record<string, unknown>[]) => {
+  const columns = new Set<string>();
+  for (const row of rows) {
+    for (const key of Object.keys(row)) columns.add(key);
+  }
+  return Array.from(columns);
+};
 
 export const table = (data: TableData, options: TableOptions = {}) =>
   renderAndReturn(() => {
-    const ctx = options.renderContext ?? getCurrentContext();
+    validateTableData(data);
+    assertPlainOptionsObject(options as unknown, "table options");
+    validateTableOptions(options);
+    const ctx = resolveRenderContext(options);
     const terminalWidth = ctx.getWidth();
     const indent = " ".repeat(ctx.offset);
     const {
@@ -38,9 +81,13 @@ export const table = (data: TableData, options: TableOptions = {}) =>
     let headers: string[] = [];
 
     if (Array.isArray(data)) {
-      if (data.length > 0 && typeof data[0] === "object" && data[0] !== null) {
+      if (data.length > 0 && isPlainRecord(data[0])) {
+        const invalidRowIndex = data.findIndex((row) => !isPlainRecord(row));
+        if (invalidRowIndex !== -1) {
+          throw new TypeError(`picoprint table data rows[${invalidRowIndex}] must be a plain object`);
+        }
         rows = data as Record<string, unknown>[];
-        headers = columns || Object.keys(data[0] as Record<string, unknown>);
+        headers = columns ? [...columns] : inferObjectColumns(rows);
       } else {
         headers = ["value"];
         rows = data.map((value) => ({ value }));
@@ -73,7 +120,7 @@ export const table = (data: TableData, options: TableOptions = {}) =>
         if (header === "#") continue;
         const value = row[header];
         const str = formatTableCell(value);
-        const len = stripAnsi(str).length;
+        const len = stringWidth(str);
         columnWidths[header] = Math.min(Math.max(columnWidths[header] || 0, len), maxWidth);
       }
     }
@@ -158,8 +205,11 @@ export const table = (data: TableData, options: TableOptions = {}) =>
 export const compareInTable = (
   left: Record<string, unknown>,
   right: Record<string, unknown>,
-  options: Partial<TableOptions> = {},
+  options: TableCompareOptions = {},
 ) => {
+  assertCompareObject(left, "left");
+  assertCompareObject(right, "right");
+  assertPlainOptionsObject(options as unknown, "table.compare options");
   const allKeys = new Set([...Object.keys(left), ...Object.keys(right)]);
   const rows = Array.from(allKeys).map((key) => ({
     key,

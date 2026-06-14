@@ -4,9 +4,11 @@ import {
   bgHex,
   bgRgb,
   color256,
+  type ColorFunction,
   colors,
   createColorPalette,
   createColors,
+  getColorKind,
   getTypeColor,
   gradient,
   gradientHex,
@@ -102,6 +104,81 @@ describe("colors", () => {
     expect(result).toContain("\u001b[39m");
   });
 
+  it("should brand foreground and background color helpers", () => {
+    expect(getColorKind(colors.red)).toBe("fg");
+    expect(getColorKind(colors.bgBlue)).toBe("bg");
+    expect(getColorKind(color256(12))).toBe("fg");
+    expect(getColorKind(bgColor256(12))).toBe("bg");
+    expect(getColorKind(rgb(1, 2, 3))).toBe("fg");
+    expect(getColorKind(bgRgb(1, 2, 3))).toBe("bg");
+    expect(getColorKind(hex("#000000"))).toBe("fg");
+    expect(getColorKind(bgHex("#000000"))).toBe("bg");
+  });
+
+  it("should keep disabled color helpers independently branded", () => {
+    const disabled = createColors(false);
+
+    expect(getColorKind(disabled.red)).toBe("fg");
+    expect(getColorKind(disabled.bgBlue)).toBe("bg");
+    expect(disabled.red("test")).toBe("test");
+    expect(disabled.bgBlue("test")).toBe("test");
+  });
+
+  it("should evaluate default color support when colors are applied", () => {
+    process.env.NO_COLOR = "1";
+    const dynamicColors = createColors();
+
+    expect(colors.red("test")).toBe("test");
+    expect(dynamicColors.red("test")).toBe("test");
+
+    delete process.env.NO_COLOR;
+    process.env.FORCE_COLOR = "1";
+
+    expect(colors.red("test")).toBe("\u001b[31mtest\u001b[39m");
+    expect(dynamicColors.red("test")).toBe("\u001b[31mtest\u001b[39m");
+  });
+
+  it("should keep explicitly enabled and disabled color sets fixed", () => {
+    const enabled = createColors(true);
+    const disabled = createColors(false);
+
+    process.env.NO_COLOR = "1";
+    expect(enabled.red("test")).toBe("\u001b[31mtest\u001b[39m");
+    expect(disabled.red("test")).toBe("test");
+
+    delete process.env.NO_COLOR;
+    process.env.FORCE_COLOR = "1";
+    expect(enabled.red("test")).toBe("\u001b[31mtest\u001b[39m");
+    expect(disabled.red("test")).toBe("test");
+  });
+
+  it("should evaluate generated color helper support when colors are applied", () => {
+    process.env.NO_COLOR = "1";
+    const fg256 = color256(196);
+    const bg256 = bgColor256(196);
+    const fgRgb = rgb(255, 0, 128);
+    const bgRgbColor = bgRgb(255, 0, 128);
+    const fgHex = hex("#ff0080");
+    const bgHexColor = bgHex("#ff0080");
+
+    expect(fg256("test")).toBe("test");
+    expect(bg256("test")).toBe("test");
+    expect(fgRgb("test")).toBe("test");
+    expect(bgRgbColor("test")).toBe("test");
+    expect(fgHex("test")).toBe("test");
+    expect(bgHexColor("test")).toBe("test");
+
+    delete process.env.NO_COLOR;
+    process.env.FORCE_COLOR = "1";
+
+    expect(fg256("test")).toBe("\u001b[38;5;196mtest\u001b[39m");
+    expect(bg256("test")).toBe("\u001b[48;5;196mtest\u001b[49m");
+    expect(fgRgb("test")).toBe("\u001b[38;2;255;0;128mtest\u001b[39m");
+    expect(bgRgbColor("test")).toBe("\u001b[48;2;255;0;128mtest\u001b[49m");
+    expect(fgHex("test")).toBe("\u001b[38;2;255;0;128mtest\u001b[39m");
+    expect(bgHexColor("test")).toBe("\u001b[48;2;255;0;128mtest\u001b[49m");
+  });
+
   describe("isColorSupported", () => {
     it("should return false when NO_COLOR is set", () => {
       process.env.NO_COLOR = "1";
@@ -150,13 +227,18 @@ describe("colors", () => {
     });
 
     it("should throw error for invalid color256 code", () => {
-      expect(() => color256(-1)).toThrow("Color code must be between 0 and 255, got -1");
-      expect(() => color256(256)).toThrow("Color code must be between 0 and 255, got 256");
+      expect(() => color256(-1)).toThrow("picoprint color256 code must be an integer from 0 to 255, got -1");
+      expect(() => color256(256)).toThrow("picoprint color256 code must be an integer from 0 to 255, got 256");
+      expect(() => color256(1.5)).toThrow("picoprint color256 code must be an integer from 0 to 255, got 1.5");
+      expect(() => color256(Number.NaN)).toThrow(
+        "picoprint color256 code must be an integer from 0 to 255, got NaN",
+      );
+      expect(() => color256("1" as unknown as number)).toThrow("picoprint color256 code must be a number");
     });
 
     it("should throw error for invalid bgColor256 code", () => {
-      expect(() => bgColor256(-1)).toThrow("Color code must be between 0 and 255, got -1");
-      expect(() => bgColor256(256)).toThrow("Color code must be between 0 and 255, got 256");
+      expect(() => bgColor256(-1)).toThrow("picoprint bgColor256 code must be an integer from 0 to 255, got -1");
+      expect(() => bgColor256(256)).toThrow("picoprint bgColor256 code must be an integer from 0 to 255, got 256");
     });
 
     it("should handle boundary values for color256", () => {
@@ -192,21 +274,26 @@ describe("colors", () => {
     });
 
     it("should throw error for invalid RGB values", () => {
-      expect(() => rgb(-1, 0, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => rgb(0, -1, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => rgb(0, 0, -1)).toThrow("RGB values must be between 0 and 255");
-      expect(() => rgb(256, 0, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => rgb(0, 256, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => rgb(0, 0, 256)).toThrow("RGB values must be between 0 and 255");
+      expect(() => rgb(-1, 0, 0)).toThrow("picoprint rgb r must be an integer from 0 to 255, got -1");
+      expect(() => rgb(0, -1, 0)).toThrow("picoprint rgb g must be an integer from 0 to 255, got -1");
+      expect(() => rgb(0, 0, -1)).toThrow("picoprint rgb b must be an integer from 0 to 255, got -1");
+      expect(() => rgb(256, 0, 0)).toThrow("picoprint rgb r must be an integer from 0 to 255, got 256");
+      expect(() => rgb(0, 256, 0)).toThrow("picoprint rgb g must be an integer from 0 to 255, got 256");
+      expect(() => rgb(0, 0, 256)).toThrow("picoprint rgb b must be an integer from 0 to 255, got 256");
+      expect(() => rgb(1.5, 0, 0)).toThrow("picoprint rgb r must be an integer from 0 to 255, got 1.5");
+      expect(() => rgb(Number.NaN, 0, 0)).toThrow(
+        "picoprint rgb r must be an integer from 0 to 255, got NaN",
+      );
+      expect(() => rgb("1" as unknown as number, 0, 0)).toThrow("picoprint rgb r must be a number");
     });
 
     it("should throw error for invalid bgRgb values", () => {
-      expect(() => bgRgb(-1, 0, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => bgRgb(0, -1, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => bgRgb(0, 0, -1)).toThrow("RGB values must be between 0 and 255");
-      expect(() => bgRgb(256, 0, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => bgRgb(0, 256, 0)).toThrow("RGB values must be between 0 and 255");
-      expect(() => bgRgb(0, 0, 256)).toThrow("RGB values must be between 0 and 255");
+      expect(() => bgRgb(-1, 0, 0)).toThrow("picoprint bgRgb r must be an integer from 0 to 255, got -1");
+      expect(() => bgRgb(0, -1, 0)).toThrow("picoprint bgRgb g must be an integer from 0 to 255, got -1");
+      expect(() => bgRgb(0, 0, -1)).toThrow("picoprint bgRgb b must be an integer from 0 to 255, got -1");
+      expect(() => bgRgb(256, 0, 0)).toThrow("picoprint bgRgb r must be an integer from 0 to 255, got 256");
+      expect(() => bgRgb(0, 256, 0)).toThrow("picoprint bgRgb g must be an integer from 0 to 255, got 256");
+      expect(() => bgRgb(0, 0, 256)).toThrow("picoprint bgRgb b must be an integer from 0 to 255, got 256");
     });
 
     it("should handle boundary RGB values", () => {
@@ -259,13 +346,15 @@ describe("colors", () => {
     });
 
     it("should throw error for invalid hex color", () => {
-      expect(() => hex("invalid")).toThrow("Invalid hex color: invalid");
-      expect(() => hex("#gg0000")).toThrow("Invalid hex color: #gg0000");
+      expect(() => hex("invalid")).toThrow("picoprint hex color must be a 6-digit hex color, got invalid");
+      expect(() => hex("#gg0000")).toThrow("picoprint hex color must be a 6-digit hex color, got #gg0000");
+      expect(() => hex(123 as unknown as string)).toThrow("picoprint hex color must be a string");
     });
 
     it("should throw error for invalid bgHex color", () => {
-      expect(() => bgHex("invalid")).toThrow("Invalid hex color: invalid");
-      expect(() => bgHex("#gg0000")).toThrow("Invalid hex color: #gg0000");
+      expect(() => bgHex("invalid")).toThrow("picoprint bgHex color must be a 6-digit hex color, got invalid");
+      expect(() => bgHex("#gg0000")).toThrow("picoprint bgHex color must be a 6-digit hex color, got #gg0000");
+      expect(() => bgHex(123 as unknown as string)).toThrow("picoprint bgHex color must be a string");
     });
   });
 
@@ -315,6 +404,10 @@ describe("colors", () => {
       const result = rainbow("h");
       expect(result).toBe("\u001b[31mh\u001b[39m");
     });
+
+    it("should throw stable errors for invalid text", () => {
+      expect(() => rainbow(12 as unknown as string)).toThrow("picoprint rainbow text must be a string");
+    });
   });
 
   describe("gradient", () => {
@@ -356,6 +449,20 @@ describe("colors", () => {
       expect(result).toBe("Hello");
       delete process.env.NO_COLOR;
     });
+
+    it("should throw stable errors for invalid inputs before checking color support", () => {
+      process.env.NO_COLOR = "1";
+
+      expect(() => gradient(12 as unknown as string, enabledColors.red, enabledColors.blue)).toThrow(
+        "picoprint gradient text must be a string",
+      );
+      expect(() => gradient("x", "red" as unknown as ColorFunction, enabledColors.blue)).toThrow(
+        "picoprint gradient start must be a function",
+      );
+      expect(() => gradient("x", enabledColors.red, "blue" as unknown as ColorFunction)).toThrow(
+        "picoprint gradient end must be a function",
+      );
+    });
   });
 
   describe("gradientRgb", () => {
@@ -383,6 +490,18 @@ describe("colors", () => {
       const endRgb = { r: 0, g: 255, b: 0 };
       const result = gradientRgb("", startRgb, endRgb);
       expect(result).toBe("");
+    });
+
+    it("should throw stable errors for invalid RGB endpoints", () => {
+      expect(() =>
+        gradientRgb(12 as unknown as string, { r: 0, g: 0, b: 0 }, { r: 0, g: 0, b: 0 }),
+      ).toThrow("picoprint gradientRgb text must be a string");
+      expect(() => gradientRgb("x", { r: 256, g: 0, b: 0 }, { r: 0, g: 0, b: 0 })).toThrow(
+        "picoprint gradientRgb start.r must be an integer from 0 to 255, got 256",
+      );
+      expect(() => gradientRgb("x", null as unknown as { r: number; g: number; b: number }, { r: 0, g: 0, b: 0 })).toThrow(
+        "picoprint gradientRgb start must be an object with r, g, and b",
+      );
     });
 
     it("should preserve spaces", () => {
@@ -420,11 +539,21 @@ describe("colors", () => {
     });
 
     it("should throw error for invalid start hex", () => {
-      expect(() => gradientHex("test", "invalid", "#0000FF")).toThrow("Invalid start hex color: invalid");
+      expect(() => gradientHex(12 as unknown as string, "#FF0000", "#0000FF")).toThrow(
+        "picoprint gradientHex text must be a string",
+      );
+      expect(() => gradientHex("test", "invalid", "#0000FF")).toThrow(
+        "picoprint gradientHex start must be a 6-digit hex color, got invalid",
+      );
     });
 
     it("should throw error for invalid end hex", () => {
-      expect(() => gradientHex("test", "#FF0000", "invalid")).toThrow("Invalid end hex color: invalid");
+      expect(() => gradientHex("test", "#FF0000", "invalid")).toThrow(
+        "picoprint gradientHex end must be a 6-digit hex color, got invalid",
+      );
+      expect(() => gradientHex("test", 123 as unknown as string, "#0000FF")).toThrow(
+        "picoprint gradientHex start must be a string",
+      );
     });
 
     it("should handle single character", () => {
@@ -457,9 +586,22 @@ describe("colors", () => {
       expect(palette[4]).toMatch(/^#[\da-f]{6}$/i);
     });
 
-    it("should handle invalid hex color", () => {
-      const palette = createColorPalette("invalid", 5);
-      expect(palette).toEqual(["invalid"]);
+    it("should throw stable errors for invalid palette inputs", () => {
+      expect(() => createColorPalette("invalid", 5)).toThrow(
+        "picoprint palette color must be a 6-digit hex color, got invalid",
+      );
+      expect(() => createColorPalette(123 as unknown as string, 5)).toThrow(
+        "picoprint palette color must be a string",
+      );
+      expect(() => createColorPalette("#ff0000", "5" as unknown as number)).toThrow(
+        "picoprint palette count must be a number",
+      );
+      expect(() => createColorPalette("#ff0000", -1)).toThrow(
+        "picoprint palette count must be a non-negative integer, got -1",
+      );
+      expect(() => createColorPalette("#ff0000", 1.5)).toThrow(
+        "picoprint palette count must be a non-negative integer, got 1.5",
+      );
     });
 
     it("should create palette with default count", () => {

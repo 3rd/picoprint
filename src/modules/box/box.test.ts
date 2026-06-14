@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { stringWidth } from "@/utils/ansi";
+import { colors } from "@/utils/colors";
 import { _resetWriterStack, pushWriter, write } from "@/utils/writer";
-import { colors } from "../colors";
 import { createContext } from "../context";
 import { box } from "./box";
 
@@ -158,11 +159,55 @@ describe("box", () => {
     expect(logOutput.join("\n")).toContain("...");
   });
 
+  it("should throw stable errors for invalid color options", () => {
+    expect(() => box("Content", { borderColor: "cyan" as never })).toThrow(
+      "picoprint borderColor must be a function",
+    );
+    expect(() => box("Content", { background: "cyan" as never })).toThrow(
+      "picoprint background must be a function",
+    );
+    expect(() => box("Content", { background: colors.blue as never })).toThrow(
+      "picoprint background must be a background color function, got a foreground color function",
+    );
+    expect(() => box("Content", { title: "Title", titleColor: "cyan" as never })).toThrow(
+      "picoprint titleColor must be a function",
+    );
+    expect(logOutput).toHaveLength(0);
+  });
+
+  it("should throw stable errors for invalid layout options", () => {
+    expect(() => box(12 as never)).toThrow("picoprint box content must be a string or function");
+    expect(() => box("Content", 12 as never)).toThrow("picoprint box options must be an object");
+    expect(() => box("Content", null as never)).toThrow("picoprint box options must be an object");
+    expect(() => box("Content", new Date() as never)).toThrow(
+      "picoprint box options must be an object",
+    );
+    expect(() => box("Content", { width: "wide" as never })).toThrow(
+      "picoprint width must be a non-negative integer",
+    );
+    expect(() => box("Content", { width: 2 })).toThrow("picoprint width must be at least 3");
+    expect(() => box("Content", { width: 4, paddingX: 1 })).toThrow(
+      "picoprint width must be at least 5 for paddingX 1",
+    );
+    expect(() => box("Content", { padding: -1 })).toThrow(
+      "picoprint padding must be a non-negative integer",
+    );
+    expect(() => box("Content", { paddingX: 1.5 })).toThrow(
+      "picoprint paddingX must be a non-negative integer",
+    );
+    expect(() => box("Content", { title: 12 as never })).toThrow("picoprint title must be a string");
+    expect(() => box("Content", { title: "Title", titleAlign: "middle" as never })).toThrow(
+      "picoprint titleAlign must be one of:",
+    );
+    expect(logOutput).toHaveLength(0);
+  });
+
   describe("box.panel", () => {
     it("should create a panel with rounded corners and extra padding", () => {
-      box.panel("Test content", "Panel Title");
+      box.panel("Test content", { title: "Panel Title" });
 
       const output = logOutput.join("\n");
+      expect(logOutput[0]).toContain("Panel Title");
       expect(output).toContain("Panel Title");
       expect(output).toContain("Test content");
       expect(output).toContain("╭");
@@ -172,12 +217,40 @@ describe("box", () => {
     });
 
     it("should capture console output when given a function", async () => {
+      box.panel(
+        () => {
+          write("Panel line 1");
+          write("Panel line 2");
+        },
+        { title: "Test Panel" },
+      );
+
+      const output = logOutput.join("\n");
+      expect(logOutput[0]).toContain("Test Panel");
+      expect(output).toContain("Test Panel");
+
+      const panelLines = logOutput.filter(
+        (line) => line.includes("Panel line 1") || line.includes("Panel line 2"),
+      );
+      expect(panelLines.length).toBe(2);
+    });
+
+    it("should support the legacy title-first form", () => {
+      box.panel("Legacy Title", "Legacy content");
+
+      const output = logOutput.join("\n");
+      expect(logOutput[0]).toContain("Legacy Title");
+      expect(output).toContain("Legacy content");
+    });
+
+    it("should support the legacy title-first callback form", () => {
       box.panel("Test Panel", () => {
         write("Panel line 1");
         write("Panel line 2");
       });
 
       const output = logOutput.join("\n");
+      expect(logOutput[0]).toContain("Test Panel");
       expect(output).toContain("Test Panel");
 
       const panelLines = logOutput.filter(
@@ -187,32 +260,64 @@ describe("box", () => {
     });
 
     it("should accept custom options", () => {
-      box.panel("Content", "Title", { borderColor: colors.green });
+      box.panel("Content", { title: "Title", borderColor: colors.green });
 
       const output = logOutput.join("\n");
+      expect(logOutput[0]).toContain("Title");
       expect(output).toContain("Title");
       expect(output).toContain("Content");
+    });
+
+    it("should let custom options override panel defaults", () => {
+      box.panel("Content", { title: "Title", style: "double", padding: 0 });
+
+      const output = logOutput.join("\n");
+      expect(logOutput).toHaveLength(3);
+      expect(output).toContain("╔");
+      expect(output).toContain("╚");
+      expect(output).not.toContain("╭");
+    });
+
+    it("should reject malformed panel options", () => {
+      expect(() => box.panel("Content", 12 as never)).toThrow("picoprint box.panel options must be an object");
+      expect(() => box.panel("Content", new Date() as never)).toThrow(
+        "picoprint box.panel options must be an object",
+      );
+      expect(() => box.panel("Title", "Content", 12 as never)).toThrow(
+        "picoprint box.panel options must be an object",
+      );
+      expect(() => box.panel("Title", "Content", /bad/ as never)).toThrow(
+        "picoprint box.panel options must be an object",
+      );
+      expect(logOutput).toHaveLength(0);
     });
   });
 
   describe("edge cases", () => {
-    it("should return the callback's return value", async () => {
+    it("should return the rendered string for callback content", () => {
       const result = box(() => {
         write("Inside box");
         return 42;
       });
 
-      expect(result).toBe(42);
+      expect(result).toContain("Inside box");
+      expect(result).toContain("┌");
+      expect(result).toBe(logOutput.join("\n"));
       expect(logOutput.join("\n")).toContain("Inside box");
     });
 
-    it("should return the callback's return value for panel", async () => {
-      const result = box.panel("Test Panel", () => {
-        write("Panel content");
-        return { value: "test" };
-      });
+    it("should return the rendered string for panel callback content", () => {
+      const result = box.panel(
+        () => {
+          write("Panel content");
+          return { value: "test" };
+        },
+        { title: "Test Panel" },
+      );
 
-      expect(result).toEqual({ value: "test" });
+      expect(result).toContain("Test Panel");
+      expect(result).toContain("Panel content");
+      expect(result).toBe(logOutput.join("\n"));
       expect(logOutput.join("\n")).toContain("Panel content");
     });
 
@@ -284,6 +389,13 @@ describe("box", () => {
       for (const line of logOutput) {
         expect(line).toMatch(/^ {4}/);
       }
+    });
+
+    it("renders box with simple offset option", () => {
+      box("Test content", { offset: 4 });
+
+      expect(logOutput.length).toBeGreaterThan(0);
+      for (const line of logOutput) expect(line).toMatch(/^ {4}/);
     });
 
     it("supports nested contexts with cumulative offsets", () => {
@@ -398,7 +510,8 @@ describe("box", () => {
         return "async result";
       });
 
-      expect(result).toBe("async result");
+      expect(result).toContain("Async content");
+      expect(result).toBe(logOutput.join("\n"));
       expect(logOutput.join("\n")).toContain("Async content");
     });
 
@@ -419,22 +532,44 @@ describe("box", () => {
         return data;
       });
 
-      expect(result).toBe("fetched data");
+      expect(result).toContain("Got: fetched data");
+      expect(result).toBe(logOutput.join("\n"));
       expect(logOutput.join("\n")).toContain("Got: fetched data");
     });
 
     it("should handle async callbacks in box.panel", async () => {
-      const result = await box.panel("Async Panel", async () => {
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 10);
-        });
-        write("Panel async");
-        return { success: true };
-      });
+      const result = await box.panel(
+        async () => {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, 10);
+          });
+          write("Panel async");
+          return { success: true };
+        },
+        { title: "Async Panel" },
+      );
 
-      expect(result).toEqual({ success: true });
+      expect(result).toContain("Panel async");
+      expect(result).toContain("Async Panel");
+      expect(result).toBe(logOutput.join("\n"));
       expect(logOutput.join("\n")).toContain("Panel async");
       expect(logOutput.join("\n")).toContain("Async Panel");
+    });
+
+    it("should treat thenable callback results as async", async () => {
+      const result = await box(() => {
+        write("before-thenable");
+        return {
+          then: (resolve: (value: unknown) => void) => {
+            write("inside-thenable");
+            resolve(undefined);
+          },
+        };
+      });
+
+      expect(result).toContain("before-thenable");
+      expect(result).toContain("inside-thenable");
+      expect(result).toBe(logOutput.join("\n"));
     });
 
     it("should handle mixed sync and async nested boxes", async () => {
@@ -444,10 +579,13 @@ describe("box", () => {
           write("Inner sync");
           return 99;
         });
-        return innerResult * 2;
+        expect(innerResult).toContain("Inner sync");
+        return innerResult.length;
       });
 
-      expect(result).toBe(198);
+      expect(result).toContain("Outer async");
+      expect(result).toContain("Inner sync");
+      expect(result).toBe(logOutput.join("\n"));
       expect(logOutput.join("\n")).toContain("Outer async");
       expect(logOutput.join("\n")).toContain("Inner sync");
     });
@@ -472,8 +610,10 @@ describe("box", () => {
         }),
       ]);
 
-      expect(resultA).toBe("A");
-      expect(resultB).toBe("B");
+      expect(resultA).toContain("A1");
+      expect(resultA).toContain("A2");
+      expect(resultB).toContain("B1");
+      expect(resultB).toContain("B2");
       const output = logOutput.join("\n");
       expect(output).toContain("A1");
       expect(output).toContain("A2");
@@ -588,6 +728,34 @@ describe("box", () => {
         (line) => line.includes("Function output line 1") || line.includes("Function output line 2"),
       );
       expect(capturedLines.length).toBe(2);
+    });
+  });
+
+  describe("wide characters", () => {
+    it("should align borders for cjk content", () => {
+      box("日本語テスト", { width: 20 });
+      box("ascii line", { width: 20 });
+
+      const widths = new Set(logOutput.map(stringWidth));
+      expect(widths.size).toBe(1);
+    });
+
+    it("should align borders for emoji content", () => {
+      box("hi 🔥🔥", { width: 16 });
+
+      const widths = new Set(logOutput.map(stringWidth));
+      expect(widths.size).toBe(1);
+    });
+  });
+
+  describe("title truncation", () => {
+    it("should keep title color when the title is truncated", () => {
+      const mark = (text: string) => `<R>${text}</R>`;
+      box("x", { width: 8, title: "verylongtitle", titleColor: mark });
+
+      const topBorder = logOutput[0] ?? "";
+      expect(topBorder).toContain("...");
+      expect(topBorder).toContain("<R>");
     });
   });
 });
