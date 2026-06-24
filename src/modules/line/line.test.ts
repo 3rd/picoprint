@@ -80,8 +80,7 @@ describe("line module", () => {
       line({ width: 10 });
 
       const output = logOutput[0];
-      // eslint-disable-next-line no-control-regex
-      const cleanOutput = output?.replace(/\u001b\[[\d;]*m/g, "") || "";
+      const cleanOutput = output ? stripAnsi(output) : "";
       expect(cleanOutput.length).toBeLessThanOrEqual(10);
     });
 
@@ -122,37 +121,13 @@ describe("line module", () => {
       expect(output).toContain("[Colored]");
     });
 
-    it("should color labels with the titleColor compatibility alias", () => {
-      line({ label: "Colored", titleColor: (text) => `{${text}}` });
-
-      const output = logOutput[0];
-      expect(output).toContain("{Colored}");
-    });
-
-    it("should prefer labelColor over the titleColor compatibility alias", () => {
-      line({
-        label: "Colored",
-        labelColor: (text) => `[${text}]`,
-        titleColor: (text) => `{${text}}`,
-      });
-
-      const output = logOutput[0];
-      expect(output).toContain("[Colored]");
-      expect(output).not.toContain("{Colored}");
-    });
-
     it("should throw stable errors for invalid color options", () => {
-      expect(() => line({ color: "cyan" as never })).toThrow(
-        "picoprint color must be a function",
-      );
+      expect(() => line({ color: "cyan" as never })).toThrow("picoprint color must be a function");
       expect(() => line({ color: colors.bgBlue as never })).toThrow(
         "picoprint color must be a foreground color function, got a background color function",
       );
       expect(() => line({ label: "Label", labelColor: "cyan" as never })).toThrow(
         "picoprint labelColor must be a function",
-      );
-      expect(() => line({ label: "Label", titleColor: "cyan" as never })).toThrow(
-        "picoprint titleColor must be a function",
       );
       expect(logOutput).toHaveLength(0);
     });
@@ -161,9 +136,7 @@ describe("line module", () => {
       expect(() => line(12 as never)).toThrow("picoprint line options must be an object");
       expect(() => line(null as never)).toThrow("picoprint line options must be an object");
       expect(() => line(new Date() as never)).toThrow("picoprint line options must be an object");
-      expect(() => line({ width: "wide" as never })).toThrow(
-        "picoprint width must be a finite number",
-      );
+      expect(() => line({ width: "wide" as never })).toThrow("picoprint width must be a finite number");
       expect(() => line({ label: 12 as never })).toThrow("picoprint label must be a string");
       expect(() => line({ label: "Label", labelAlign: "middle" as never })).toThrow(
         "picoprint labelAlign must be one of:",
@@ -452,6 +425,5 @@ describe("line module", () => {
       const output = logOutput[0];
       expect(output).toBeDefined();
     });
-
   });
 });

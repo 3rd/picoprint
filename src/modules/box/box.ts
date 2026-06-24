@@ -156,12 +156,6 @@ const renderBox = (params: RenderBoxParams) => {
   for (const line of boxLines) write(indent + line);
 };
 
-export function box(content: string, options?: BoxOptions): string;
-export function box<T>(content: () => T, options?: BoxOptions): BoxCallbackResult<T>;
-export function box(content: BoxContent, options: BoxOptions = {}): Promise<string> | string {
-  return renderBoxContent(content, options);
-}
-
 const renderBoxContent = (content: BoxContent, options: BoxOptions = {}): Promise<string> | string => {
   if (typeof content !== "string" && typeof content !== "function") {
     throw new TypeError("picoprint box content must be a string or function");
@@ -250,26 +244,15 @@ const renderBoxContent = (content: BoxContent, options: BoxOptions = {}): Promis
   });
 };
 
+export function box(content: string, options?: BoxOptions): string;
+export function box<T>(content: () => T, options?: BoxOptions): BoxCallbackResult<T>;
+export function box(content: BoxContent, options: BoxOptions = {}): Promise<string> | string {
+  return renderBoxContent(content, options);
+}
+
 function boxPanel(content: string, options?: Partial<BoxOptions>): string;
 function boxPanel<T>(content: () => T, options?: Partial<BoxOptions>): BoxCallbackResult<T>;
-function boxPanel(title: string, content: string, options?: Partial<BoxOptions>): string;
-function boxPanel<T>(title: string, content: () => T, options?: Partial<BoxOptions>): BoxCallbackResult<T>;
-function boxPanel(
-  first: BoxContent,
-  second?: BoxContent | Partial<BoxOptions>,
-  third: Partial<BoxOptions> = {},
-): Promise<string> | string {
-  if (typeof second === "string" || typeof second === "function") {
-    assertPlainOptionsObject(third, "box.panel options");
-    const opts: BoxOptions = {
-      style: "rounded",
-      padding: 1,
-      ...third,
-      title: String(first),
-    };
-    return renderBoxContent(second, opts);
-  }
-
+function boxPanel(first: BoxContent, second?: Partial<BoxOptions>): Promise<string> | string {
   assertPlainOptionsObject(second, "box.panel options");
   const opts: BoxOptions = { style: "rounded", padding: 1, ...second };
   return renderBoxContent(first, opts);

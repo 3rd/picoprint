@@ -10,7 +10,7 @@ import { prettyPrint } from "./modules/pp";
 import * as stream from "./modules/stream";
 import { compareInTable, table } from "./modules/table";
 import { callStack, stack, trace, error as traceError } from "./modules/trace";
-import { directory, tree, treeFromObject, treeMulti, treeSearch, treeStats } from "./modules/tree";
+import { directory, tree, treeFromObject, treeMulti, treeSearch } from "./modules/tree";
 import { toColoredInlineString } from "./utils/format-value";
 import { format as captureFormat, writeLog } from "./utils/writer";
 
@@ -18,9 +18,15 @@ export type { BoxOptions } from "./modules/box";
 export type { CalendarEvent, CalendarOptions } from "./modules/calendar";
 export type { CodeOptions } from "./modules/code";
 export type { ForegroundColorName } from "./modules/colors";
-export type { ConfigureOptions, PicocprintConfig } from "./modules/config";
+export type { ConfigureOptions, PicoprintConfig } from "./modules/config";
 export type { RenderContext, RenderOptions } from "./modules/context";
-export type { CompareOptions, DiffNode, DiffOptions, DiffPathSegment, DiffWordsOptions } from "./modules/diff";
+export type {
+  CompareOptions,
+  DiffNode,
+  DiffOptions,
+  DiffPathSegment,
+  DiffWordsOptions,
+} from "./modules/diff";
 export type { GradientLineOptions, LineOptions } from "./modules/line";
 export type { PrettyPrintOptions } from "./modules/pp";
 export type {
@@ -35,14 +41,7 @@ export type {
 } from "./modules/stream";
 export type { TableCompareOptions, TableData, TableOptions } from "./modules/table";
 export type { StackOptions, TraceOptions } from "./modules/trace";
-export type {
-  DirectoryEntry,
-  DirectoryOptions,
-  TreeNode,
-  TreeOptions,
-  TreeStatsResult,
-  TreeStyleName,
-} from "./modules/tree";
+export type { DirectoryEntry, DirectoryOptions, TreeNode, TreeOptions, TreeStyleName } from "./modules/tree";
 export type {
   BackgroundColorFunction,
   BackgroundColorOption,
@@ -61,13 +60,11 @@ const extendedTree = Object.assign(tree, {
   fromObject: treeFromObject,
   multi: treeMulti,
   search: treeSearch,
-  stats: treeStats,
   directory,
 });
 
 const extendedDiff = Object.assign(diff, {
   words: diffWords,
-  nodes: deepDiff,
   deep: deepDiff,
   compare,
 });

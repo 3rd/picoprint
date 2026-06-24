@@ -1,2 +1,2 @@
 export { configure, getConfig, resetConfig } from "./config";
-export type { ConfigureOptions, PicocprintConfig } from "./config";
+export type { ConfigureOptions, PicoprintConfig } from "./config";

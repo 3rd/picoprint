@@ -37,10 +37,6 @@ export interface CodeOptions {
   offset?: RenderOptions["offset"];
   language?: string;
   frame?: LineStyleName | boolean;
-  /** @deprecated use frame */
-  window?: LineStyleName | boolean;
-  /** @deprecated use frame */
-  style?: LineStyleName | boolean;
   title?: string;
   titleAlign?: "center" | "left" | "right";
   background?: BackgroundColorOption;
@@ -58,18 +54,14 @@ const _batState = { available: undefined as boolean | undefined };
 
 const validateCodeOptions = (options: CodeOptions) => {
   assertStringOption(options.language, "language");
-  if (options.frame !== undefined && typeof options.frame !== "boolean" && typeof options.frame !== "string") {
+  if (
+    options.frame !== undefined &&
+    typeof options.frame !== "boolean" &&
+    typeof options.frame !== "string"
+  ) {
     throw new TypeError("picoprint frame must be a boolean or style name");
   }
-  if (options.window !== undefined && typeof options.window !== "boolean" && typeof options.window !== "string") {
-    throw new TypeError("picoprint window must be a boolean or style name");
-  }
-  if (options.style !== undefined && typeof options.style !== "boolean" && typeof options.style !== "string") {
-    throw new TypeError("picoprint style must be a boolean or style name");
-  }
   if (typeof options.frame === "string") assertLineStyleOption(options.frame, "frame");
-  if (typeof options.window === "string") assertLineStyleOption(options.window, "window");
-  if (typeof options.style === "string") assertLineStyleOption(options.style, "style");
   assertStringOption(options.title, "title");
   assertEnumOption(options.titleAlign, "titleAlign", ALIGN_VALUES);
   assertBooleanOption(options.lineNumbers, "lineNumbers");
@@ -176,9 +168,8 @@ const getLineNumberGutterWidth = (lineCount: number, paddingAfter: number) => {
 };
 
 const getFrameStyle = (opts: CodeOptions): LineStyleName | undefined => {
-  const frame = opts.frame ?? opts.window ?? opts.style;
-  if (!frame) return undefined;
-  return typeof frame === "string" ? frame : (getConfig().defaults?.style ?? "single");
+  if (!opts.frame) return undefined;
+  return typeof opts.frame === "string" ? opts.frame : (getConfig().defaults?.style ?? "single");
 };
 
 const displayFallback = (codeString: string, options: CodeOptions) => {
@@ -250,8 +241,8 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
     if (frameStyle) {
       const paddingX = opts.paddingX ?? opts.padding ?? 0;
       let frameWidth = opts.width ?? ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
-      if (opts.width !== undefined) assertBoxWidth(frameWidth, paddingX);
-      else frameWidth = clampBoxWidth(frameWidth, paddingX);
+      if (opts.width === undefined) frameWidth = clampBoxWidth(frameWidth, paddingX);
+      else assertBoxWidth(frameWidth, paddingX);
       const innerFrameWidth = Math.max(0, frameWidth - BORDER_WIDTH);
       const baseContentWidth = Math.max(0, innerFrameWidth - paddingX * 2);
 
@@ -262,9 +253,7 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
         const gutter = getLineNumberGutterWidth(prelim.length, paddingX);
         const minimumWidth = BORDER_WIDTH + paddingX * 2 + gutter + 1;
         if (frameWidth < minimumWidth) {
-          throw new RangeError(
-            `picoprint width must be at least ${minimumWidth} when lineNumbers is true`,
-          );
+          throw new RangeError(`picoprint width must be at least ${minimumWidth} when lineNumbers is true`);
         }
         targetWidth = baseContentWidth - gutter;
       }
@@ -272,7 +261,8 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
       let lines = getHighlightedCode(codeString, opts.language, Math.max(1, targetWidth));
 
       // if bat isn't available, manually wrap to target width
-      if (!isBatAvailable() && targetWidth > 0) {
+      const shouldWrapManually = !isBatAvailable() && targetWidth > 0;
+      if (shouldWrapManually) {
         const wrapped: string[] = [];
         for (const ln of lines) {
           const segs = applyTextWrapping(ln, targetWidth, "");
@@ -300,65 +290,7 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
         width: opts.width,
         renderContext: ctx,
       });
-    } else {
-      // no box
-      if (!codeString || !isBatAvailable()) {
-        const bgFn = getBackgroundOrIdentity(opts.background);
-        if (opts.background) {
-          // background rendering +  padding
-          const paddingX = opts.paddingX ?? opts.padding ?? 1;
-          const paddingY = opts.paddingY ?? opts.padding ?? 1;
-          const ctxWidth = ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
-          let contentWidth = Math.max(0, ctxWidth - paddingX * 2);
-
-          // reduce content width by gutter if line numbers enabled
-          if (opts.lineNumbers) {
-            const lineCount = codeString.split("\n").length;
-            const gutter = getLineNumberGutterWidth(lineCount, paddingX);
-            contentWidth = Math.max(1, contentWidth - gutter);
-          }
-
-          // prepare lines and wrap to contentWidth if needed
-          let lines = codeString.split("\n");
-          if (contentWidth > 0) {
-            const wrapped: string[] = [];
-            for (const ln of lines) {
-              const segs = applyTextWrapping(ln, contentWidth, "");
-              wrapped.push(...segs);
-            }
-            lines = wrapped;
-          }
-
-          if (opts.lineNumbers) {
-            lines = addLineNumbers(lines, paddingX);
-          }
-
-          // top padding lines
-          for (let i = 0; i < paddingY; i++) {
-            write(indent + bgFn(" ".repeat(ctxWidth)));
-          }
-
-          // content lines with left/right padding and background
-          for (const line of lines) {
-            const strippedLength = stringWidth(line);
-            const fillNeeded = Math.max(0, ctxWidth - strippedLength - paddingX * 2);
-            const leftPad = bgFn(" ".repeat(paddingX));
-            const body = applyBgToSegments(line, bgFn);
-            const rightPad = bgFn(" ".repeat(paddingX + fillNeeded));
-            write(indent + leftPad + body + rightPad);
-          }
-
-          // bottom padding lines
-          for (let i = 0; i < paddingY; i++) {
-            write(indent + bgFn(" ".repeat(ctxWidth)));
-          }
-        } else {
-          displayFallback(codeString, opts);
-        }
-        return;
-      }
-
-      // wrap to current context width through bat
+    } else if (codeString && isBatAvailable()) {
       const maxWidth = opts.width ?? ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
       const paddingX = opts.paddingX ?? opts.padding ?? 1;
       const paddingY = opts.paddingY ?? opts.padding ?? 1;
@@ -402,6 +334,53 @@ export const code = (codeString: string, options?: CodeOptions | string) =>
         }
       } else {
         for (const line of lines) write(indent + line);
+      }
+    } else {
+      const bgFn = getBackgroundOrIdentity(opts.background);
+      if (opts.background) {
+        const paddingX = opts.paddingX ?? opts.padding ?? 1;
+        const paddingY = opts.paddingY ?? opts.padding ?? 1;
+        const ctxWidth = ctx.getWidth() ?? getTerminalWidth() ?? DEFAULT_TERMINAL_WIDTH;
+        let contentWidth = Math.max(0, ctxWidth - paddingX * 2);
+
+        if (opts.lineNumbers) {
+          const lineCount = codeString.split("\n").length;
+          const gutter = getLineNumberGutterWidth(lineCount, paddingX);
+          contentWidth = Math.max(1, contentWidth - gutter);
+        }
+
+        let lines = codeString.split("\n");
+        if (contentWidth > 0) {
+          const wrapped: string[] = [];
+          for (const ln of lines) {
+            const segs = applyTextWrapping(ln, contentWidth, "");
+            wrapped.push(...segs);
+          }
+          lines = wrapped;
+        }
+
+        if (opts.lineNumbers) {
+          lines = addLineNumbers(lines, paddingX);
+        }
+
+        for (let i = 0; i < paddingY; i++) {
+          write(indent + bgFn(" ".repeat(ctxWidth)));
+        }
+
+        for (const line of lines) {
+          const strippedLength = stringWidth(line);
+          const fillNeeded = Math.max(0, ctxWidth - strippedLength - paddingX * 2);
+          const leftPad = bgFn(" ".repeat(paddingX));
+          const body = applyBgToSegments(line, bgFn);
+          const rightPad = bgFn(" ".repeat(paddingX + fillNeeded));
+          write(indent + leftPad + body + rightPad);
+        }
+
+        for (let i = 0; i < paddingY; i++) {
+          write(indent + bgFn(" ".repeat(ctxWidth)));
+        }
+      } else {
+        displayFallback(codeString, opts);
       }
     }
   });

@@ -88,7 +88,6 @@ describe("trace", () => {
       expect(filter.lastIndex).toBe(4);
     });
 
-
     it("should handle malformed stack lines", () => {
       const malformedStack = `Error: Test
     at valid (file.js:1:1)
@@ -104,21 +103,13 @@ describe("trace", () => {
 
     it("throws stable errors for invalid trace options", () => {
       expect(() => trace("Test", null as never)).toThrow("picoprint trace options must be an object");
-      expect(() => trace("Test", new Date() as never)).toThrow(
-        "picoprint trace options must be an object",
-      );
+      expect(() => trace("Test", new Date() as never)).toThrow("picoprint trace options must be an object");
       expect(() => trace("Test", { maxFrames: -1 })).toThrow(
         "picoprint maxFrames must be a non-negative integer",
       );
-      expect(() => trace("Test", { filter: "trace" as never })).toThrow(
-        "picoprint filter must be a RegExp",
-      );
-      expect(() => trace("Test", { header: "box" as never })).toThrow(
-        "picoprint header must be one of:",
-      );
-      expect(() => trace("Test", { footer: "yes" as never })).toThrow(
-        "picoprint footer must be a boolean",
-      );
+      expect(() => trace("Test", { filter: "trace" as never })).toThrow("picoprint filter must be a RegExp");
+      expect(() => trace("Test", { header: "box" as never })).toThrow("picoprint header must be one of:");
+      expect(() => trace("Test", { footer: "yes" as never })).toThrow("picoprint footer must be a boolean");
       expect(logOutput).toHaveLength(0);
     });
   });
@@ -358,9 +349,7 @@ describe("trace", () => {
     });
 
     it("throws stable errors for invalid error options", () => {
-      expect(() => error("Test", new Date() as never)).toThrow(
-        "picoprint trace options must be an object",
-      );
+      expect(() => error("Test", new Date() as never)).toThrow("picoprint trace options must be an object");
       expect(logOutput).toHaveLength(0);
     });
   });
@@ -376,8 +365,10 @@ describe("trace", () => {
     });
 
     it("should format stack frames", () => {
-      // eslint-disable-next-line functional/prefer-tacit
-      const testFunction = () => callStack();
+      function testFunction() {
+        callStack();
+      }
+
       testFunction();
 
       expect(logOutput.join("\n")).toContain("#1");
@@ -406,9 +397,7 @@ describe("trace", () => {
     });
 
     it("throws stable errors for invalid callStack options", () => {
-      expect(() => callStack(12 as never)).toThrow(
-        "picoprint trace.callStack options must be an object",
-      );
+      expect(() => callStack(12 as never)).toThrow("picoprint trace.callStack options must be an object");
       expect(() => callStack(new Date() as never)).toThrow(
         "picoprint trace.callStack options must be an object",
       );

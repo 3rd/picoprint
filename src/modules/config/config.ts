@@ -9,7 +9,7 @@ import {
   isPlainRecord,
 } from "../../utils/options";
 
-export interface PicocprintConfig {
+export interface PicoprintConfig {
   defaults?: {
     style?: LineStyleName;
     compact?: boolean;
@@ -26,18 +26,18 @@ type RequireConfigSection<T> = {
   [K in keyof T]-?: Partial<Omit<T, K>> & { [P in K]-?: NonNullable<T[P]> };
 }[keyof T];
 
-export type ConfigureOptions = RequireConfigSection<PicocprintConfig>;
+export type ConfigureOptions = RequireConfigSection<PicoprintConfig>;
 
-const defaultConfig: PicocprintConfig = {
+const defaultConfig: PicoprintConfig = {
   defaults: {},
   code: {
     useBat: false, // opt-in
   },
 };
 
-let globalConfig: PicocprintConfig = {};
+let globalConfig: PicoprintConfig = {};
 
-const cloneCodeConfig = (code: PicocprintConfig["code"]) => {
+const cloneCodeConfig = (code: PicoprintConfig["code"]) => {
   if (!code) return undefined;
   return {
     ...code,
@@ -45,7 +45,7 @@ const cloneCodeConfig = (code: PicocprintConfig["code"]) => {
   };
 };
 
-export const getConfig = (): PicocprintConfig => ({
+export const getConfig = (): PicoprintConfig => ({
   defaults: { ...defaultConfig.defaults, ...globalConfig.defaults },
   code: cloneCodeConfig({ ...defaultConfig.code, ...globalConfig.code }),
 });

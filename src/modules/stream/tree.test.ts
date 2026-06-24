@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
-import { colors } from "@/utils/colors";
 import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import { tree } from "./tree";
 
@@ -92,34 +91,20 @@ describe("stream.tree", () => {
     expect(() => tree(new Date() as never)).toThrow("picoprint stream.tree options must be an object");
     expect(() => tree({ bullet: 1 as never })).toThrow("picoprint bullet must be a string");
     expect(() => tree({ indent: 1 as never })).toThrow("picoprint indent must be a string");
-    expect(() => tree({ colors: "cyan" as never })).toThrow(
-      "picoprint stream.tree colors must be an object",
-    );
+    expect(() => tree({ colors: "cyan" as never })).toThrow("picoprint stream.tree colors must be an object");
     expect(() => tree({ colors: { node: "cyan" as never } })).toThrow(
       "picoprint stream.tree colors.node must be a function",
     );
-    expect(() => tree({ nodeColor: "cyan" as never })).toThrow(
-      "picoprint nodeColor must be a function",
-    );
-    expect(() => tree({ valueColor: "cyan" as never })).toThrow(
-      "picoprint valueColor must be a function",
-    );
-    expect(() => tree({ connectorColor: "cyan" as never })).toThrow(
-      "picoprint connectorColor must be a function",
-    );
-    expect(tree({ nodeColor: colors.blue })).toBeDefined();
     expect(logOutput).toHaveLength(0);
   });
 
-  it("accepts nested color options and prefers them over compatibility color fields", () => {
+  it("accepts nested color options", () => {
     const tr = tree({
       colors: { node: (text) => `<node:${text}>` },
-      nodeColor: (text) => `<legacy:${text}>`,
     });
     tr.node("root");
 
     const output = logOutput.map(stripAnsi).join("\n");
     expect(output).toContain("<node:root>");
-    expect(output).not.toContain("<legacy:root>");
   });
 });

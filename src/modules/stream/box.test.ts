@@ -84,22 +84,14 @@ describe("stream.box", () => {
     expect(() => box(new Date() as never)).toThrow("picoprint stream.box options must be an object");
     expect(() => box({ width: -1 })).toThrow("picoprint width must be a non-negative integer");
     expect(() => box({ width: 2 })).toThrow("picoprint width must be at least 3");
-    expect(() => box({ width: 4, paddingX: 1 })).toThrow(
-      "picoprint width must be at least 5 for paddingX 1",
-    );
+    expect(() => box({ width: 4, paddingX: 1 })).toThrow("picoprint width must be at least 5 for paddingX 1");
     expect(() => box({ padding: -1 })).toThrow("picoprint padding must be a non-negative integer");
     expect(() => box({ paddingX: -1 })).toThrow("picoprint paddingX must be a non-negative integer");
     expect(() => box({ paddingY: -1 })).toThrow("picoprint paddingY must be a non-negative integer");
     expect(() => box({ title: 12 as never })).toThrow("picoprint title must be a string");
-    expect(() => box({ titleAlign: "middle" as never })).toThrow(
-      "picoprint titleAlign must be one of:",
-    );
-    expect(() => box({ borderColor: "cyan" as never })).toThrow(
-      "picoprint borderColor must be a function",
-    );
-    expect(() => box({ background: "cyan" as never })).toThrow(
-      "picoprint background must be a function",
-    );
+    expect(() => box({ titleAlign: "middle" as never })).toThrow("picoprint titleAlign must be one of:");
+    expect(() => box({ borderColor: "cyan" as never })).toThrow("picoprint borderColor must be a function");
+    expect(() => box({ background: "cyan" as never })).toThrow("picoprint background must be a function");
     expect(() => box({ background: colors.blue as never })).toThrow(
       "picoprint background must be a background color function, got a foreground color function",
     );

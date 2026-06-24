@@ -96,8 +96,8 @@ printExample("Circular References", [
   {
     title: "object self-reference",
     handler: () => {
-      const obj = { name: "Circular object" };
-      // @ts-expect-error
+      type CircularObject = { name: string; self?: CircularObject };
+      const obj: CircularObject = { name: "Circular object" };
       obj.self = obj;
       p(obj);
     },
@@ -105,8 +105,7 @@ printExample("Circular References", [
   {
     title: "array self-reference",
     handler: () => {
-      const arr = [1, 2, 3];
-      // @ts-expect-error
+      const arr: unknown[] = [1, 2, 3];
       arr.push(arr);
       p(arr);
     },
@@ -114,9 +113,10 @@ printExample("Circular References", [
   {
     title: "complex circular structure",
     handler: () => {
-      const parent = { name: "parent", children: [] };
+      type Parent = { name: string; children: Child[] };
+      type Child = { name: string; parent: Parent };
+      const parent: Parent = { name: "parent", children: [] };
       const child = { name: "child", parent };
-      // @ts-expect-error
       parent.children.push(child);
       p(parent);
     },

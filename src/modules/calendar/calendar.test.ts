@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { stripAnsi } from "@/utils/ansi";
 import { colors } from "@/utils/colors";
 import { _resetWriterStack, pushWriter } from "@/utils/writer";
 import type { CalendarEvent } from "./types";
 import { calendar } from "./calendar";
-
-// eslint-disable-next-line no-control-regex
-const stripAnsi = (str: string) => str.replace(/\u001b\[[\d;]*m/g, "");
 
 const JANUARY = 0;
 const FEBRUARY = 1;

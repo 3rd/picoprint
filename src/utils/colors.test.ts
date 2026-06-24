@@ -228,8 +228,12 @@ describe("colors", () => {
 
     it("should throw error for invalid color256 code", () => {
       expect(() => color256(-1)).toThrow("picoprint color256 code must be an integer from 0 to 255, got -1");
-      expect(() => color256(256)).toThrow("picoprint color256 code must be an integer from 0 to 255, got 256");
-      expect(() => color256(1.5)).toThrow("picoprint color256 code must be an integer from 0 to 255, got 1.5");
+      expect(() => color256(256)).toThrow(
+        "picoprint color256 code must be an integer from 0 to 255, got 256",
+      );
+      expect(() => color256(1.5)).toThrow(
+        "picoprint color256 code must be an integer from 0 to 255, got 1.5",
+      );
       expect(() => color256(Number.NaN)).toThrow(
         "picoprint color256 code must be an integer from 0 to 255, got NaN",
       );
@@ -237,8 +241,12 @@ describe("colors", () => {
     });
 
     it("should throw error for invalid bgColor256 code", () => {
-      expect(() => bgColor256(-1)).toThrow("picoprint bgColor256 code must be an integer from 0 to 255, got -1");
-      expect(() => bgColor256(256)).toThrow("picoprint bgColor256 code must be an integer from 0 to 255, got 256");
+      expect(() => bgColor256(-1)).toThrow(
+        "picoprint bgColor256 code must be an integer from 0 to 255, got -1",
+      );
+      expect(() => bgColor256(256)).toThrow(
+        "picoprint bgColor256 code must be an integer from 0 to 255, got 256",
+      );
     });
 
     it("should handle boundary values for color256", () => {
@@ -352,8 +360,12 @@ describe("colors", () => {
     });
 
     it("should throw error for invalid bgHex color", () => {
-      expect(() => bgHex("invalid")).toThrow("picoprint bgHex color must be a 6-digit hex color, got invalid");
-      expect(() => bgHex("#gg0000")).toThrow("picoprint bgHex color must be a 6-digit hex color, got #gg0000");
+      expect(() => bgHex("invalid")).toThrow(
+        "picoprint bgHex color must be a 6-digit hex color, got invalid",
+      );
+      expect(() => bgHex("#gg0000")).toThrow(
+        "picoprint bgHex color must be a 6-digit hex color, got #gg0000",
+      );
       expect(() => bgHex(123 as unknown as string)).toThrow("picoprint bgHex color must be a string");
     });
   });
@@ -418,9 +430,8 @@ describe("colors", () => {
       expect(result).toContain("\u001b[38;2;0;0;255m");
       expect(result).toContain("\u001b[38;2;");
 
-      // eslint-disable-next-line no-control-regex
-      const rgbMatches = result.match(/\u001b\[38;2;(\d+);(\d+);(\d+)m/g) || [];
-      expect(rgbMatches.length).toBeGreaterThan(2);
+      const rgbSequenceCount = result.split("\u001b[38;2;").length - 1;
+      expect(rgbSequenceCount).toBeGreaterThan(2);
     });
 
     it("should handle single character", () => {
@@ -493,15 +504,15 @@ describe("colors", () => {
     });
 
     it("should throw stable errors for invalid RGB endpoints", () => {
-      expect(() =>
-        gradientRgb(12 as unknown as string, { r: 0, g: 0, b: 0 }, { r: 0, g: 0, b: 0 }),
-      ).toThrow("picoprint gradientRgb text must be a string");
+      expect(() => gradientRgb(12 as unknown as string, { r: 0, g: 0, b: 0 }, { r: 0, g: 0, b: 0 })).toThrow(
+        "picoprint gradientRgb text must be a string",
+      );
       expect(() => gradientRgb("x", { r: 256, g: 0, b: 0 }, { r: 0, g: 0, b: 0 })).toThrow(
         "picoprint gradientRgb start.r must be an integer from 0 to 255, got 256",
       );
-      expect(() => gradientRgb("x", null as unknown as { r: number; g: number; b: number }, { r: 0, g: 0, b: 0 })).toThrow(
-        "picoprint gradientRgb start must be an object with r, g, and b",
-      );
+      expect(() =>
+        gradientRgb("x", null as unknown as { r: number; g: number; b: number }, { r: 0, g: 0, b: 0 }),
+      ).toThrow("picoprint gradientRgb start must be an object with r, g, and b");
     });
 
     it("should preserve spaces", () => {
@@ -653,10 +664,8 @@ describe("colors", () => {
     });
 
     it("should handle null/undefined converted to string", () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(enabledColors.red(null as any)).toContain("null");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(enabledColors.red(undefined as any)).toContain("undefined");
+      expect(enabledColors.red(null as unknown as string)).toContain("null");
+      expect(enabledColors.red(undefined as unknown as string)).toContain("undefined");
     });
 
     it("should handle special characters", () => {

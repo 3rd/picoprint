@@ -10,6 +10,23 @@ import {
   write,
 } from "./writer";
 
+const createThenable = (onResolve: () => void): PromiseLike<void> => {
+  return new Proxy(
+    {},
+    {
+      get: (_target, property) => {
+        if (property === "then") {
+          return (resolve: (value: void) => void) => {
+            onResolve();
+            resolve(undefined);
+          };
+        }
+        return undefined;
+      },
+    },
+  ) as PromiseLike<void>;
+};
+
 describe("writer", () => {
   afterEach(() => {
     _resetWriterStack();
@@ -181,14 +198,9 @@ describe("writer", () => {
     });
 
     it("should treat thenables as async callback results", async () => {
-      const result = await format(() => {
+      const result = await format((): PromiseLike<void> => {
         write("before-thenable");
-        return {
-          then: (resolve: (value: unknown) => void) => {
-            write("inside-thenable");
-            resolve(undefined);
-          },
-        };
+        return createThenable(() => write("inside-thenable"));
       });
 
       expect(result).toBe("before-thenable\ninside-thenable");

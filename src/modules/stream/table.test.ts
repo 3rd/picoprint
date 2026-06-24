@@ -84,6 +84,16 @@ describe("stream.table", () => {
     expect(clean[5]).toContain("└"); // bottom border
   });
 
+  it("uses maxWidth as the fixed streaming column budget", () => {
+    const t = table({ columns: ["status"] });
+    t.row({ status: "complete" });
+    t.close();
+
+    const clean = logOutput.map(stripAnsi).join("\n");
+    expect(clean).toContain("complete");
+    expect(clean).not.toContain("com...");
+  });
+
   it("uses configured style and compact defaults", () => {
     configure({ defaults: { style: "rounded", compact: true } });
     const t = table({ columns: ["name"] });
@@ -92,22 +102,16 @@ describe("stream.table", () => {
     const clean = logOutput.map(stripAnsi);
 
     expect(clean[0]).toContain("╭");
-    expect(clean[1]).toContain("│ name │");
-    expect(clean[1]).not.toContain("│  name  │");
+    expect(clean[1]).toMatch(/^│ name\s+│$/);
+    expect(clean[1]).not.toContain("│  name");
   });
 
   it("throws a stable error for invalid row data while open", () => {
     const t = table({ columns: ["name"] });
 
-    expect(() => t.row(undefined as never)).toThrow(
-      "picoprint stream.table row data must be a plain object",
-    );
-    expect(() => t.row(null as never)).toThrow(
-      "picoprint stream.table row data must be a plain object",
-    );
-    expect(() => t.row(["Alice"] as never)).toThrow(
-      "picoprint stream.table row data must be a plain object",
-    );
+    expect(() => t.row(undefined as never)).toThrow("picoprint stream.table row data must be a plain object");
+    expect(() => t.row(null as never)).toThrow("picoprint stream.table row data must be a plain object");
+    expect(() => t.row(["Alice"] as never)).toThrow("picoprint stream.table row data must be a plain object");
     expect(() => t.row(new Date("2024-01-01") as never)).toThrow(
       "picoprint stream.table row data must be a plain object",
     );

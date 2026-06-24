@@ -20,8 +20,7 @@ describe("terminal", () => {
     it("should return default width when columns is undefined", () => {
       if (!process.stdout) return;
 
-      // @ts-expect-error
-      delete process.stdout.columns;
+      Reflect.deleteProperty(process.stdout, "columns");
       expect(getTerminalWidth()).toBe(DEFAULT_TERMINAL_WIDTH);
     });
 

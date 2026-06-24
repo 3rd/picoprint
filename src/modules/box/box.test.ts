@@ -1,9 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { stringWidth } from "@/utils/ansi";
+import { stringWidth, stripAnsi } from "@/utils/ansi";
 import { colors } from "@/utils/colors";
 import { _resetWriterStack, pushWriter, write } from "@/utils/writer";
 import { createContext } from "../context";
 import { box } from "./box";
+
+const createThenable = (onResolve: () => void): PromiseLike<void> => {
+  return new Proxy(
+    {},
+    {
+      get: (_target, property) => {
+        if (property === "then") {
+          return (resolve: (value: void) => void) => {
+            onResolve();
+            resolve(undefined);
+          };
+        }
+        return undefined;
+      },
+    },
+  ) as PromiseLike<void>;
+};
 
 describe("box", () => {
   let logOutput: string[];
@@ -93,8 +110,7 @@ describe("box", () => {
 
     expect(logOutput.length).toBeGreaterThan(0);
     for (const line of logOutput) {
-      // eslint-disable-next-line no-control-regex
-      const cleanLine = line.replace(/\u001b\[[\d;]*m/g, "");
+      const cleanLine = stripAnsi(line);
       expect(cleanLine.length).toBeLessThanOrEqual(20);
     }
   });
@@ -179,9 +195,7 @@ describe("box", () => {
     expect(() => box(12 as never)).toThrow("picoprint box content must be a string or function");
     expect(() => box("Content", 12 as never)).toThrow("picoprint box options must be an object");
     expect(() => box("Content", null as never)).toThrow("picoprint box options must be an object");
-    expect(() => box("Content", new Date() as never)).toThrow(
-      "picoprint box options must be an object",
-    );
+    expect(() => box("Content", new Date() as never)).toThrow("picoprint box options must be an object");
     expect(() => box("Content", { width: "wide" as never })).toThrow(
       "picoprint width must be a non-negative integer",
     );
@@ -189,9 +203,7 @@ describe("box", () => {
     expect(() => box("Content", { width: 4, paddingX: 1 })).toThrow(
       "picoprint width must be at least 5 for paddingX 1",
     );
-    expect(() => box("Content", { padding: -1 })).toThrow(
-      "picoprint padding must be a non-negative integer",
-    );
+    expect(() => box("Content", { padding: -1 })).toThrow("picoprint padding must be a non-negative integer");
     expect(() => box("Content", { paddingX: 1.5 })).toThrow(
       "picoprint paddingX must be a non-negative integer",
     );
@@ -235,30 +247,6 @@ describe("box", () => {
       expect(panelLines.length).toBe(2);
     });
 
-    it("should support the legacy title-first form", () => {
-      box.panel("Legacy Title", "Legacy content");
-
-      const output = logOutput.join("\n");
-      expect(logOutput[0]).toContain("Legacy Title");
-      expect(output).toContain("Legacy content");
-    });
-
-    it("should support the legacy title-first callback form", () => {
-      box.panel("Test Panel", () => {
-        write("Panel line 1");
-        write("Panel line 2");
-      });
-
-      const output = logOutput.join("\n");
-      expect(logOutput[0]).toContain("Test Panel");
-      expect(output).toContain("Test Panel");
-
-      const panelLines = logOutput.filter(
-        (line) => line.includes("Panel line 1") || line.includes("Panel line 2"),
-      );
-      expect(panelLines.length).toBe(2);
-    });
-
     it("should accept custom options", () => {
       box.panel("Content", { title: "Title", borderColor: colors.green });
 
@@ -279,14 +267,10 @@ describe("box", () => {
     });
 
     it("should reject malformed panel options", () => {
-      expect(() => box.panel("Content", 12 as never)).toThrow("picoprint box.panel options must be an object");
+      expect(() => box.panel("Content", 12 as never)).toThrow(
+        "picoprint box.panel options must be an object",
+      );
       expect(() => box.panel("Content", new Date() as never)).toThrow(
-        "picoprint box.panel options must be an object",
-      );
-      expect(() => box.panel("Title", "Content", 12 as never)).toThrow(
-        "picoprint box.panel options must be an object",
-      );
-      expect(() => box.panel("Title", "Content", /bad/ as never)).toThrow(
         "picoprint box.panel options must be an object",
       );
       expect(logOutput).toHaveLength(0);
@@ -341,8 +325,7 @@ describe("box", () => {
 
       expect(logOutput.length).toBeGreaterThan(0);
       for (const line of logOutput) {
-        // eslint-disable-next-line no-control-regex
-        const cleanLine = line.replace(/\u001b\[[\d;]*m/g, "");
+        const cleanLine = stripAnsi(line);
         expect(cleanLine.length).toBeLessThanOrEqual(10);
       }
     });
@@ -374,8 +357,7 @@ describe("box", () => {
 
       expect(logOutput.length).toBeGreaterThan(0);
       const firstLine = logOutput[0] ?? "";
-      // eslint-disable-next-line no-control-regex
-      const cleanFirstLine = firstLine.replace(/\u001b\[[\d;]*m/g, "");
+      const cleanFirstLine = stripAnsi(firstLine);
       expect(cleanFirstLine).toMatch(/^┌/);
     });
 
@@ -433,8 +415,7 @@ describe("box", () => {
       box("Test", { renderContext: ctx });
 
       for (const line of logOutput) {
-        // eslint-disable-next-line no-control-regex
-        const stripped = line.replace(/\u001b\[[^m]*m/g, "");
+        const stripped = stripAnsi(line);
         expect(stripped.length).toBe(mockColumns);
       }
 
@@ -557,14 +538,9 @@ describe("box", () => {
     });
 
     it("should treat thenable callback results as async", async () => {
-      const result = await box(() => {
+      const result = await box((): PromiseLike<void> => {
         write("before-thenable");
-        return {
-          then: (resolve: (value: unknown) => void) => {
-            write("inside-thenable");
-            resolve(undefined);
-          },
-        };
+        return createThenable(() => write("inside-thenable"));
       });
 
       expect(result).toContain("before-thenable");

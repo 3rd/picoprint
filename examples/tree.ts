@@ -104,8 +104,7 @@ printExample("Tree Styles", [
     },
   },
   {
-    // eslint-disable-next-line unicorn/text-encoding-identifier-case
-    title: "ASCII",
+    title: "ascii",
     handler: () => {
       const styleTree: TreeNode = {
         name: "Root",
@@ -696,65 +695,6 @@ printExample("Tree Search", [
         showValues: true,
         filter: (node) => node.name === "Documents" || node.metadata?.visible !== false,
       });
-    },
-  },
-]);
-
-printExample("Tree Statistics", [
-  {
-    title: "Simple stats",
-    handler: () => {
-      const simpleStatsTree: TreeNode = {
-        name: "Root",
-        children: [{ name: "Child1" }, { name: "Child2" }, { name: "Child3" }],
-      };
-      p.tree.stats(simpleStatsTree);
-    },
-  },
-  {
-    title: "Complex stats",
-    handler: () => {
-      const complexStatsTree: TreeNode = {
-        name: "System",
-        value: "root",
-        children: [
-          {
-            name: "Services",
-            value: "services",
-            children: [
-              {
-                name: "API",
-                value: "api-service",
-                children: [
-                  { name: "REST", value: "rest-api" },
-                  { name: "GraphQL", value: "graphql-api" },
-                ],
-              },
-              {
-                name: "Database",
-                value: "db-service",
-                children: [
-                  { name: "Primary", value: "primary-db" },
-                  { name: "Replica", value: "replica-db" },
-                ],
-              },
-            ],
-          },
-          {
-            name: "Workers",
-            children: [
-              { name: "Queue", value: "queue-worker" },
-              { name: "Scheduler", value: "scheduler-worker" },
-              { name: "Processor", value: "processor-worker" },
-            ],
-          },
-          {
-            name: "Cache",
-            value: "cache-layer",
-          },
-        ],
-      };
-      p.tree.stats(complexStatsTree);
     },
   },
 ]);

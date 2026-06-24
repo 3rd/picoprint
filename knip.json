@@ -1,7 +1,5 @@
 {
-  "entry": ["src/index.ts"],
   "project": ["src/**/*.ts"],
-  "ignore": ["src/examples/**"],
   "ignoreDependencies": ["bun-types"],
   "ignoreExportsUsedInFile": true
 }

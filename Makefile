@@ -25,11 +25,15 @@ define print_mod_end
 endef
 
 .DEFAULT_GOAL = help
-.PHONY: help install clean dev test test-watch test-coverage build tsc
+.PHONY: help install clean dev test test-watch test-coverage build tsc test-package publish-dry size
 
 help: ## help
-	@echo "📦 ${YELLOW}bun-lib${RESET}"
-	@grep -E '^[a-zA-Z_0-9%-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "${BLUE}%-20s${RESET} %s\n", $$1, $$2}'
+	@echo "📦 ${YELLOW}picoprint${RESET}"
+	@while IFS= read -r line; do \
+		target="$${line%%:*}"; \
+		desc="$${line#*## }"; \
+		printf "${BLUE}%-20s${RESET} %s\n" "$$target" "$$desc"; \
+	done < <(grep -E '^[a-zA-Z_0-9%-]+:.*?## .*$$' $(MAKEFILE_LIST))
 
 install: ## install dependencies
 	$(call print_mod_start,${MAGENTA}Install:${RESET} dependencies)
@@ -70,15 +74,19 @@ build: ## build library
 tsc: ## run type checking
 	@tsc --noEmit
 
-publish-dry: build ## dry run npm publish
+test-package: ## run package smoke checks
+	$(call print_mod_start,${MAGENTA}Test:${RESET} package smoke)
+	@bun run test:package
+	$(call print_mod_end)
+
+publish-dry: test-package ## dry run npm publish
 	$(call print_mod_start,${MAGENTA}Publish:${RESET} dry run)
 	@npm publish --dry-run
 	$(call print_mod_end)
 
 size: build ## check bundle size
 	$(call print_mod_start,${MAGENTA}Size:${RESET} analysis)
-	@echo "│ • ${CYAN}dist/index.mjs${RESET}: $$(du -h dist/index.mjs | cut -f1)"
 	@echo "│ • ${CYAN}dist/index.js${RESET}: $$(du -h dist/index.js | cut -f1)"
+	@echo "│ • ${CYAN}dist/index.cjs${RESET}: $$(du -h dist/index.cjs | cut -f1)"
 	@echo "│ • ${CYAN}dist total${RESET}: $$(du -sh dist | cut -f1)"
 	$(call print_mod_end)
-

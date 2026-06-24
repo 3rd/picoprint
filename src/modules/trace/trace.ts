@@ -103,7 +103,9 @@ const validateTraceOptions = (options: TraceOptions) => {
 };
 
 const assertStackArgument = (value: unknown) => {
-  if (value === undefined || value instanceof Error || typeof value === "string" || isPlainRecord(value)) return;
+  if (value === undefined || value instanceof Error || typeof value === "string" || isPlainRecord(value)) {
+    return;
+  }
   throw new TypeError("picoprint trace.stack argument must be an Error, stack string, or options object");
 };
 
@@ -125,12 +127,7 @@ const getTraceStack = (err: unknown, message: string) => {
 export const trace = (err: unknown, options: TraceOptions = {}) =>
   renderAndReturn(() => {
     validateTraceOptions(options);
-    const {
-      maxFrames = DEFAULT_MAX_FRAMES,
-      filter,
-      header = "plain",
-      footer = true,
-    } = options;
+    const { maxFrames = DEFAULT_MAX_FRAMES, filter, header = "plain", footer = true } = options;
 
     const message = (() => {
       if (err instanceof Error) return err.message;
@@ -190,12 +187,7 @@ export function stack(errorOrOptions?: Error | StackOptions | string, options: S
 
   return renderAndReturn(() => {
     validateStackOptions(opts);
-    const {
-      maxFrames = DEFAULT_STACK_FRAMES,
-      showFiles = "show",
-      skipFrames = 0,
-      highlight,
-    } = opts;
+    const { maxFrames = DEFAULT_STACK_FRAMES, showFiles = "show", skipFrames = 0, highlight } = opts;
 
     const ctx = resolveRenderContext(opts);
     const indent = " ".repeat(ctx.offset);

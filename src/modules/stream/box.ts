@@ -18,8 +18,8 @@ import {
 } from "../../utils/options";
 import { write } from "../../utils/writer";
 import { assertBoxWidth, buildTopBorder, clampBoxWidth } from "../box/_shared";
-import { getConfig } from "../config";
 import { dim } from "../colors";
+import { getConfig } from "../config";
 import { type RenderOptions, resolveRenderContext } from "../context";
 import { BORDER_WIDTH, Closable, wrapTo } from "./_shared";
 

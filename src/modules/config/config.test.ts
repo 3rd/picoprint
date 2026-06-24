@@ -57,20 +57,17 @@ describe("config", () => {
   });
 
   it("throws when called with no arguments", () => {
-    // @ts-expect-error testing runtime guard
-    expect(() => configure()).toThrow("picoprint configure() requires options");
+    const configureWithoutOptions = configure as (options?: unknown) => void;
+    expect(() => configureWithoutOptions()).toThrow("picoprint configure() requires options");
   });
 
   it("throws when called with empty object", () => {
-    // @ts-expect-error testing runtime guard
-    expect(() => configure({})).toThrow("picoprint configure() requires options");
+    expect(() => configure({} as never)).toThrow("picoprint configure() requires options");
   });
 
   it("throws when called with a non-object argument", () => {
     expect(() => configure("bad" as never)).toThrow("picoprint configure() requires an options object");
-    expect(() => configure(new Date() as never)).toThrow(
-      "picoprint configure() requires an options object",
-    );
+    expect(() => configure(new Date() as never)).toThrow("picoprint configure() requires an options object");
   });
 
   it("throws when config sections are malformed", () => {

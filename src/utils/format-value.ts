@@ -18,6 +18,8 @@ export const formatValueColored = (value: unknown, options?: FormatValueOptions)
   if (typeof value === "number") return getTypeColor("number")(String(value));
   if (typeof value === "bigint") return getTypeColor("bigint")(`${value}n`);
   if (value instanceof Date) return getTypeColor("date")(value.toISOString());
+  if (value instanceof RegExp) return getTypeColor("regexp")(String(value));
+  if (value instanceof Error) return getTypeColor("error")(`[Error: ${value.message}]`);
   if (typeof value === "string") {
     const c = getTypeColor("string");
     return options?.quoteStrings ? c(`"${value}"`) : c(value);
@@ -132,56 +134,62 @@ const formatColored = (value: unknown, seen: WeakSet<object>, indent = 0, inline
     return [sp + getTypeColor(t)(String(value))];
   }
 
+  let trackedObject: object | undefined;
   if (typeof value === "object" && value !== null) {
     if (seen.has(value)) return [sp + colors.red("[Circular]")];
     seen.add(value);
+    trackedObject = value;
   }
 
-  if (isArray(value)) {
-    const arr = value as unknown[];
-    if (arr.length === 0) return [`${sp}[]`];
-    const lines: string[] = [];
-    lines.push(`${sp}[`);
-    for (let i = 0; i < arr.length; i++) {
-      const part = formatColored(arr[i], seen, indent + 2, false);
-      if (part.length === 1) lines.push(part[0] + (i < arr.length - 1 ? "," : ""));
-      else {
-        for (let j = 0; j < part.length; j++) {
-          const line = part[j] ?? "";
-          lines.push(line + (j === part.length - 1 && i < arr.length - 1 ? "," : ""));
+  try {
+    if (isArray(value)) {
+      const arr = value as unknown[];
+      if (arr.length === 0) return [`${sp}[]`];
+      const lines: string[] = [];
+      lines.push(`${sp}[`);
+      for (let i = 0; i < arr.length; i++) {
+        const part = formatColored(arr[i], seen, indent + 2, false);
+        if (part.length === 1) lines.push(part[0] + (i < arr.length - 1 ? "," : ""));
+        else {
+          for (let j = 0; j < part.length; j++) {
+            const line = part[j] ?? "";
+            lines.push(line + (j === part.length - 1 && i < arr.length - 1 ? "," : ""));
+          }
         }
       }
+      lines.push(`${sp}]`);
+      return lines;
     }
-    lines.push(`${sp}]`);
-    return lines;
-  }
 
-  if (isObject(value)) {
-    const obj = value as Record<string, unknown>;
-    const keys = Object.keys(obj);
-    if (keys.length === 0) return [`${sp}{}`];
-    const lines: string[] = [];
-    lines.push(`${sp}{`);
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i]!;
-      const v = obj[k];
-      const keyText = VALID_IDENTIFIER_REGEX.test(k) ? k : JSON.stringify(k);
-      const keyStr = keyColor(keyText);
-      const valLines = formatColored(v, seen, indent + 2, false);
-      if (valLines.length === 1) {
-        const valStr = valLines[0]?.slice(indent + 2);
-        lines.push(`${sp}  ${keyStr}: ${valStr}${i < keys.length - 1 ? "," : ""}`);
-      } else {
-        lines.push(`${sp}  ${keyStr}: ${valLines[0]?.slice(indent + 2)}`);
-        for (let j = 1; j < valLines.length; j++) lines.push(valLines[j]!);
-        if (i < keys.length - 1) lines[lines.length - 1] = `${lines[lines.length - 1] || ""},`;
+    if (isObject(value)) {
+      const obj = value as Record<string, unknown>;
+      const keys = Object.keys(obj);
+      if (keys.length === 0) return [`${sp}{}`];
+      const lines: string[] = [];
+      lines.push(`${sp}{`);
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i]!;
+        const v = obj[k];
+        const keyText = VALID_IDENTIFIER_REGEX.test(k) ? k : JSON.stringify(k);
+        const keyStr = keyColor(keyText);
+        const valLines = formatColored(v, seen, indent + 2, false);
+        if (valLines.length === 1) {
+          const valStr = valLines[0]?.slice(indent + 2);
+          lines.push(`${sp}  ${keyStr}: ${valStr}${i < keys.length - 1 ? "," : ""}`);
+        } else {
+          lines.push(`${sp}  ${keyStr}: ${valLines[0]?.slice(indent + 2)}`);
+          for (let j = 1; j < valLines.length; j++) lines.push(valLines[j]!);
+          if (i < keys.length - 1) lines[lines.length - 1] = `${lines[lines.length - 1] || ""},`;
+        }
       }
+      lines.push(`${sp}}`);
+      return lines;
     }
-    lines.push(`${sp}}`);
-    return lines;
-  }
 
-  return [sp + getTypeColor(t)(String(value))];
+    return [sp + getTypeColor(t)(String(value))];
+  } finally {
+    if (trackedObject) seen.delete(trackedObject);
+  }
 };
 
 export const toColoredInlineString = (value: unknown) => {

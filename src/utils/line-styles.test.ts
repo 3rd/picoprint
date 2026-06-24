@@ -117,8 +117,7 @@ describe("line-styles", () => {
     });
 
     it("should return empty string for invalid char type", () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(getLineChar("single", "invalid" as any)).toBe("");
+      expect(getLineChar("single", "invalid" as never)).toBe("");
     });
   });
 

@@ -65,15 +65,17 @@ export const renderAndReturn = (fn: () => void): string => {
 export type MaybeAsyncString<T> = T extends PromiseLike<unknown> ? Promise<string> : string;
 
 export const isPromiseLike = (value: unknown): value is PromiseLike<unknown> => {
-  return value !== null && typeof value === "object" && typeof (value as { then?: unknown }).then === "function";
+  return (
+    value !== null && typeof value === "object" && typeof (value as { then?: unknown }).then === "function"
+  );
 };
 
 export function format<T>(fn: () => T): MaybeAsyncString<T>;
 export function format(fn: () => unknown): Promise<string> | string {
   if (typeof fn !== "function") throw new TypeError("picoprint format callback must be a function");
   const { lines, result } = captureLines(() => {
-    const result = fn();
-    return isPromiseLike(result) ? Promise.resolve(result) : result;
+    const callbackResult = fn();
+    return isPromiseLike(callbackResult) ? Promise.resolve(callbackResult) : callbackResult;
   });
   if (isPromiseLike(result)) return Promise.resolve(result).then(() => lines.join("\n"));
   return lines.join("\n");

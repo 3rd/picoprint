@@ -47,9 +47,7 @@ describe("RenderContext", () => {
     });
 
     it("throws stable errors for invalid offset", () => {
-      expect(() => createContext(-1)).toThrow(
-        "picoprint offset must be a non-negative finite number",
-      );
+      expect(() => createContext(-1)).toThrow("picoprint offset must be a non-negative finite number");
       expect(() => createContext("2" as never)).toThrow(
         "picoprint offset must be a non-negative finite number",
       );
@@ -91,9 +89,7 @@ describe("RenderContext", () => {
     it("throws stable errors for invalid indent amounts", () => {
       const ctx = createContext(10);
 
-      expect(() => ctx.indent(-1)).toThrow(
-        "picoprint indent amount must be a non-negative finite number",
-      );
+      expect(() => ctx.indent(-1)).toThrow("picoprint indent amount must be a non-negative finite number");
       expect(() => ctx.indent("2" as never)).toThrow(
         "picoprint indent amount must be a non-negative finite number",
       );
@@ -122,9 +118,7 @@ describe("RenderContext", () => {
     it("throws stable errors for invalid additional offsets", () => {
       const ctx = createContext();
 
-      expect(() => ctx.withOffset(-1)).toThrow(
-        "picoprint offset must be a non-negative finite number",
-      );
+      expect(() => ctx.withOffset(-1)).toThrow("picoprint offset must be a non-negative finite number");
       expect(() => ctx.withOffset("2" as never)).toThrow(
         "picoprint offset must be a non-negative finite number",
       );

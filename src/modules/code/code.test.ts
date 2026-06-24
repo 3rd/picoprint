@@ -117,35 +117,6 @@ describe("code", () => {
       expect(output).toContain("const x = 42;");
     });
 
-    it("should prefer frame over compatibility aliases", () => {
-      code("test", { frame: "rounded", window: "double", style: "thick" });
-
-      const output = logOutput.join("\n");
-      expect(output).toContain("╭");
-      expect(output).toContain("╯");
-      expect(output).not.toContain("╔");
-      expect(output).not.toContain("┏");
-    });
-
-    it("should support the window compatibility alias", () => {
-      code("test", { window: "double" });
-
-      const output = logOutput.join("\n");
-      expect(output).toContain("╔");
-      expect(output).toContain("╝");
-    });
-
-    it("should support the style compatibility alias", () => {
-      code("test", { style: "double" });
-
-      const output = logOutput.join("\n");
-      expect(output).toContain("╔");
-      expect(output).toContain("╗");
-      expect(output).toContain("╚");
-      expect(output).toContain("╝");
-      expect(output).toContain("║");
-    });
-
     it("should render code with rounded border style", () => {
       code("test", { frame: "rounded" });
 
@@ -250,9 +221,7 @@ line3`;
     it("should throw stable errors for invalid layout options", () => {
       expect(() => code(undefined as never)).toThrow("picoprint code source must be a string");
       expect(() => code(12 as never)).toThrow("picoprint code source must be a string");
-      expect(() => code("const x = 1;", 12 as never)).toThrow(
-        "picoprint code options must be an object",
-      );
+      expect(() => code("const x = 1;", 12 as never)).toThrow("picoprint code options must be an object");
       expect(() => code("const x = 1;", new Date() as never)).toThrow(
         "picoprint code options must be an object",
       );
@@ -423,8 +392,7 @@ line3`;
 
       const topBorder = logOutput[0];
       if (topBorder) {
-        // eslint-disable-next-line no-control-regex
-        const strippedLength = topBorder.replace(/\u001b\[[\d;]*m/g, "").length;
+        const strippedLength = stripAnsi(topBorder).length;
         expect(strippedLength).toBe(40);
       } else {
         expect(topBorder).toBeDefined();
@@ -440,7 +408,7 @@ line3`;
     it("should combine multiple options", () => {
       code("function test() {\n  return 42;\n}", {
         language: "javascript",
-        style: "double",
+        frame: "double",
         title: "Test Function",
         titleAlign: "left",
         lineNumbers: true,

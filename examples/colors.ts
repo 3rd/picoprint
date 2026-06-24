@@ -1,4 +1,3 @@
-/* eslint-disable sonarjs/no-nested-template-literals */
 import p from "@/.";
 import { printExample } from "./_helpers";
 
@@ -97,8 +96,10 @@ printExample("256 Colors", [
     handler: () => {
       p.log(p.color.bold("256 colors:"));
       const color256Examples = [16, 21, 51, 82, 118, 154, 190, 196, 202, 208, 214, 220, 226];
-      p.log(`Foreground: ${color256Examples.map((col) => p.color.color256(col)(`■${col}`)).join(" ")}`);
-      p.log(`Background: ${color256Examples.map((col) => p.color.bgColor256(col)(`${col}  `)).join(" ")}`);
+      const foregroundExamples = color256Examples.map((col) => p.color.color256(col)(`■${col}`));
+      const backgroundExamples = color256Examples.map((col) => p.color.bgColor256(col)(`${col}  `));
+      p.log(`Foreground: ${foregroundExamples.join(" ")}`);
+      p.log(`Background: ${backgroundExamples.join(" ")}`);
     },
   },
 ]);
@@ -110,12 +111,20 @@ printExample("RGB Colors", [
     handler: () => {
       p.log(p.color.bold("RGB colors:"));
       p.log(
-        `${p.color.rgb(255, 0, 0)("Pure Red")} | ${p.color.rgb(0, 255, 0)("Pure Green")} | ${p.color.rgb(0, 0, 255)("Pure Blue")}`,
+        [
+          p.color.rgb(255, 0, 0)("Pure Red"),
+          p.color.rgb(0, 255, 0)("Pure Green"),
+          p.color.rgb(0, 0, 255)("Pure Blue"),
+        ].join(" | "),
       );
       p.log(
-        `${p.color.rgb(255, 12, 0)("Orange")} | ${p.color.rgb(12, 0, 255)("Purple")} | ${p.color.rgb(255, 0, 12)("Pink")}`,
+        [
+          p.color.rgb(255, 12, 0)("Orange"),
+          p.color.rgb(12, 0, 255)("Purple"),
+          p.color.rgb(255, 0, 12)("Pink"),
+        ].join(" | "),
       );
-      p.log(`${p.color.bgRgb(64, 64, 64)(p.color.rgb(255, 255, 255)("White on dark gray RGB background"))}`);
+      p.log(p.color.bgRgb(64, 64, 64)(p.color.rgb(255, 255, 255)("White on dark gray RGB background")));
     },
   },
 ]);
@@ -126,11 +135,11 @@ printExample("Hex Colors", [
     title: "Hex colors",
     handler: () => {
       p.log(p.color.bold("Hex colors:"));
-      p.log(`${p.color.hex("#FF5733")("#FF5733 Coral")}`);
-      p.log(`${p.color.hex("#33FF57")("#33FF57 Lime")}`);
-      p.log(`${p.color.hex("#3357FF")("#3357FF Royal Blue")}`);
-      p.log(`${p.color.hex("#FF33F5")("#FF33F5 Hot Pink")}`);
-      p.log(`${p.color.bgHex("#2C3E50")(p.color.hex("#ECF0F1")("#ECF0F1 on #2C3E50 background"))}`);
+      p.log(p.color.hex("#FF5733")("#FF5733 Coral"));
+      p.log(p.color.hex("#33FF57")("#33FF57 Lime"));
+      p.log(p.color.hex("#3357FF")("#3357FF Royal Blue"));
+      p.log(p.color.hex("#FF33F5")("#FF33F5 Hot Pink"));
+      p.log(p.color.bgHex("#2C3E50")(p.color.hex("#ECF0F1")("#ECF0F1 on #2C3E50 background")));
     },
   },
 ]);
@@ -141,12 +150,12 @@ printExample("Combined Styles", [
     title: "Combined styles",
     handler: () => {
       p.log(p.color.bold("Combined styles:"));
-      p.log(`${p.color.bold.red("Bold red text")}`);
-      p.log(`${p.color.underline.green("Underlined green text")}`);
-      p.log(`${p.color.italic.blue("Italic blue text")}`);
-      p.log(`${p.color.bgYellow.bold.red("Bold red on yellow")}`);
-      p.log(`${p.color.inverse.cyan("Inverted cyan text")}`);
-      p.log(`${p.color.dim.strikethrough("Dim strikethrough text")}`);
+      p.log(p.color.bold.red("Bold red text"));
+      p.log(p.color.underline.green("Underlined green text"));
+      p.log(p.color.italic.blue("Italic blue text"));
+      p.log(p.color.bgYellow.bold.red("Bold red on yellow"));
+      p.log(p.color.inverse.cyan("Inverted cyan text"));
+      p.log(p.color.dim.strikethrough("Dim strikethrough text"));
     },
   },
 ]);
@@ -157,9 +166,9 @@ printExample("Rainbow Text", [
     title: "Rainbow text",
     handler: () => {
       p.log(p.color.bold("Rainbow text:"));
-      p.log(`${p.color.rainbow("This is rainbow colored text! 🌈")}`);
-      p.log(`${p.color.rainbow("ABCDEFGHIJKLMNOPQRSTUVWXYZ")}`);
-      p.log(`${p.color.rainbow("0123456789 !@#$%^&*()")}`);
+      p.log(p.color.rainbow("This is rainbow colored text! 🌈"));
+      p.log(p.color.rainbow("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
+      p.log(p.color.rainbow("0123456789 !@#$%^&*()"));
     },
   },
 ]);
@@ -171,16 +180,28 @@ printExample("Gradient Text", [
     handler: () => {
       p.log(p.color.bold("Gradient text (standard colors):"));
       p.log(
-        `${p.color.gradient("Smooth gradient from red to blue with proper interpolation", p.color.red, p.color.blue)}`,
+        p.color.gradient(
+          "Smooth gradient from red to blue with proper interpolation",
+          p.color.red,
+          p.color.blue,
+        ),
       );
       p.log(
-        `${p.color.gradient("Gradient from green to magenta - notice the smooth transition", p.color.green, p.color.magenta)}`,
+        p.color.gradient(
+          "Gradient from green to magenta - notice the smooth transition",
+          p.color.green,
+          p.color.magenta,
+        ),
       );
       p.log(
-        `${p.color.gradient("Yellow to cyan gradient with character-by-character color change", p.color.yellow, p.color.cyan)}`,
+        p.color.gradient(
+          "Yellow to cyan gradient with character-by-character color change",
+          p.color.yellow,
+          p.color.cyan,
+        ),
       );
       p.log(
-        `${p.color.gradient("Black to white gradient creates a grayscale effect", p.color.black, p.color.white)}`,
+        p.color.gradient("Black to white gradient creates a grayscale effect", p.color.black, p.color.white),
       );
     },
   },
@@ -189,10 +210,18 @@ printExample("Gradient Text", [
     handler: () => {
       p.log(p.color.bold("Gradient text (RGB):"));
       p.log(
-        `${p.color.gradientRgb("Custom RGB gradient from orange to purple", { r: 255, g: 127, b: 0 }, { r: 127, g: 0, b: 255 })}`,
+        p.color.gradientRgb(
+          "Custom RGB gradient from orange to purple",
+          { r: 255, g: 127, b: 0 },
+          { r: 127, g: 0, b: 255 },
+        ),
       );
       p.log(
-        `${p.color.gradientRgb("Sunset gradient from red-orange to deep purple", { r: 255, g: 94, b: 77 }, { r: 84, g: 74, b: 125 })}`,
+        p.color.gradientRgb(
+          "Sunset gradient from red-orange to deep purple",
+          { r: 255, g: 94, b: 77 },
+          { r: 84, g: 74, b: 125 },
+        ),
       );
     },
   },
@@ -200,9 +229,9 @@ printExample("Gradient Text", [
     title: "Hex gradients",
     handler: () => {
       p.log(p.color.bold("Gradient text (Hex colors):"));
-      p.log(`${p.color.gradientHex("Oceanic gradient from teal to deep blue", "#20B2AA", "#000080")}`);
-      p.log(`${p.color.gradientHex("Fire gradient from bright yellow to deep red", "#FFD700", "#8B0000")}`);
-      p.log(`${p.color.gradientHex("Nature gradient from forest green to sky blue", "#228B22", "#87CEEB")}`);
+      p.log(p.color.gradientHex("Oceanic gradient from teal to deep blue", "#20B2AA", "#000080"));
+      p.log(p.color.gradientHex("Fire gradient from bright yellow to deep red", "#FFD700", "#8B0000"));
+      p.log(p.color.gradientHex("Nature gradient from forest green to sky blue", "#228B22", "#87CEEB"));
     },
   },
   {
@@ -211,7 +240,7 @@ printExample("Gradient Text", [
       p.log(p.color.bold("Long text gradient demonstration:"));
       const longText =
         "This is a longer text to demonstrate how the gradient smoothly transitions across many characters.";
-      p.log(`${p.color.gradientHex(longText, "#FF1493", "#00CED1")}`);
+      p.log(p.color.gradientHex(longText, "#FF1493", "#00CED1"));
     },
   },
 ]);
@@ -223,17 +252,14 @@ printExample("Color Palettes", [
     handler: () => {
       p.log(p.color.bold("Color palettes:"));
       const palette1 = p.color.palette("#FF0000", 7);
-      p.log(
-        `Red palette:     ${palette1.map((col) => p.color.hex(col)("██")).join(" ")}\n  ${palette1.join(" ")}`,
-      );
+      const redPaletteBlocks = palette1.map((col) => p.color.hex(col)("██")).join(" ");
+      p.log(`Red palette:     ${redPaletteBlocks}\n  ${palette1.join(" ")}`);
       const palette2 = p.color.palette("#00FF00", 7);
-      p.log(
-        `Green palette:   ${palette2.map((col) => p.color.hex(col)("██")).join(" ")}\n  ${palette2.join(" ")}`,
-      );
+      const greenPaletteBlocks = palette2.map((col) => p.color.hex(col)("██")).join(" ");
+      p.log(`Green palette:   ${greenPaletteBlocks}\n  ${palette2.join(" ")}`);
       const palette3 = p.color.palette("#0000FF", 7);
-      p.log(
-        `Blue palette:    ${palette3.map((col) => p.color.hex(col)("██")).join(" ")}\n  ${palette3.join(" ")}`,
-      );
+      const bluePaletteBlocks = palette3.map((col) => p.color.hex(col)("██")).join(" ");
+      p.log(`Blue palette:    ${bluePaletteBlocks}\n  ${palette3.join(" ")}`);
     },
   },
 ]);

@@ -1,7 +1,12 @@
 import type { CalendarEvent, CalendarOptions } from "./types";
 import { assertForegroundColorOption, colors } from "../../utils/colors";
 import { drawHorizontalLine } from "../../utils/line-styles";
-import { assertBooleanOption, assertPlainOptionsObject, isOptionsObject, isPlainRecord } from "../../utils/options";
+import {
+  assertBooleanOption,
+  assertPlainOptionsObject,
+  isOptionsObject,
+  isPlainRecord,
+} from "../../utils/options";
 import { renderAndReturn, write } from "../../utils/writer";
 import { resolveRenderContext } from "../context";
 
@@ -124,7 +129,9 @@ const validateCalendarOptions = (date: unknown, options: CalendarOptions) => {
     assertForegroundColorOption(event.color, `events[${index}].color`);
     const priority = event.priority;
     if (priority !== undefined && !EVENT_PRIORITIES.includes(priority as (typeof EVENT_PRIORITIES)[number])) {
-      throw new TypeError(`picoprint events[${index}].priority must be one of: ${EVENT_PRIORITIES.join(", ")}`);
+      throw new TypeError(
+        `picoprint events[${index}].priority must be one of: ${EVENT_PRIORITIES.join(", ")}`,
+      );
     }
   }
 };
@@ -171,10 +178,7 @@ const renderCalendarFooter = (config: {
 
 export function calendar(options?: CalendarOptions): string;
 export function calendar(date?: Date, options?: CalendarOptions): string;
-export function calendar(
-  dateOrOptions: CalendarOptions | Date = new Date(),
-  options: CalendarOptions = {},
-) {
+export function calendar(dateOrOptions: CalendarOptions | Date = new Date(), options: CalendarOptions = {}) {
   const isOptionsOnly = isCalendarOptionsInput(dateOrOptions);
   const date = isOptionsOnly ? new Date() : dateOrOptions;
   const opts = isOptionsOnly ? dateOrOptions : options;
@@ -275,7 +279,9 @@ export function calendar(
   }
 
   if (showFooter) {
-    lines.push(...renderCalendarFooter({ events, year, month, width, highlightToday, highlightWeekends, today }));
+    lines.push(
+      ...renderCalendarFooter({ events, year, month, width, highlightToday, highlightWeekends, today }),
+    );
   }
 
   const indent = " ".repeat(ctx.offset);

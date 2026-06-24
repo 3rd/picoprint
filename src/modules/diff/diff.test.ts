@@ -209,6 +209,22 @@ describe("diff", () => {
       expect(output).toContain("new value");
     });
 
+    it("should not show changes for equal root leaf objects", () => {
+      const cases: [unknown, unknown][] = [
+        [new Date("2024-01-01T00:00:00Z"), new Date("2024-01-01T00:00:00Z")],
+        [/ok/i, /ok/i],
+        [new Error("same"), new Error("same")],
+      ];
+
+      for (const [left, right] of cases) {
+        logOutput = [];
+        diff(left, right);
+
+        const output = stripAnsi(logOutput.join("\n"));
+        expect(output).not.toMatch(/^[+-] /m);
+      }
+    });
+
     it("should show unchanged values when showUnchanged is true", () => {
       const obj1 = { a: 1, b: 2 };
       const obj2 = { a: 1, b: 3 };
@@ -252,8 +268,12 @@ describe("diff", () => {
 
     it("should throw stable errors for invalid diff options", () => {
       expect(() => diff({ a: 1 }, { a: 2 }, 12 as never)).toThrow("picoprint diff options must be an object");
-      expect(() => diff({ a: 1 }, { a: 2 }, null as never)).toThrow("picoprint diff options must be an object");
-      expect(() => diff({ a: 1 }, { a: 2 }, new Date() as never)).toThrow("picoprint diff options must be an object");
+      expect(() => diff({ a: 1 }, { a: 2 }, null as never)).toThrow(
+        "picoprint diff options must be an object",
+      );
+      expect(() => diff({ a: 1 }, { a: 2 }, new Date() as never)).toThrow(
+        "picoprint diff options must be an object",
+      );
       expect(() => diff({ a: 1 }, { a: 2 }, { showUnchanged: "yes" as never })).toThrow(
         "picoprint showUnchanged must be a boolean",
       );
@@ -352,13 +372,21 @@ describe("diff", () => {
       expect(() => diffWords(undefined as never, "two")).toThrow(
         "picoprint diff.words first argument must be a string",
       );
-      expect(() => diffWords(1 as never, "two")).toThrow("picoprint diff.words first argument must be a string");
+      expect(() => diffWords(1 as never, "two")).toThrow(
+        "picoprint diff.words first argument must be a string",
+      );
       expect(() => diffWords("one", undefined as never)).toThrow(
         "picoprint diff.words second argument must be a string",
       );
-      expect(() => diffWords("one", 2 as never)).toThrow("picoprint diff.words second argument must be a string");
-      expect(() => diffWords("A", "a", 12 as never)).toThrow("picoprint diff.words options must be an object");
-      expect(() => diffWords("A", "a", /bad/ as never)).toThrow("picoprint diff.words options must be an object");
+      expect(() => diffWords("one", 2 as never)).toThrow(
+        "picoprint diff.words second argument must be a string",
+      );
+      expect(() => diffWords("A", "a", 12 as never)).toThrow(
+        "picoprint diff.words options must be an object",
+      );
+      expect(() => diffWords("A", "a", /bad/ as never)).toThrow(
+        "picoprint diff.words options must be an object",
+      );
       expect(() => diffWords("A", "a", { ignoreCase: "yes" as never })).toThrow(
         "picoprint ignoreCase must be a boolean",
       );

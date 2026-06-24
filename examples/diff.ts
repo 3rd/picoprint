@@ -83,7 +83,7 @@ const stateB = {
 };
 printExample("Deep Diff", [
   {
-    title: "nodes + formatted",
+    title: "deep + formatted",
     handler: () => {
       const nodes = p.diff.deep(stateA, stateB);
       p.log(p.color.cyan("changes:"));

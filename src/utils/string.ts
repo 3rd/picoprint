@@ -1,4 +1,11 @@
-import { COLOR_START_REGEX, graphemeWidth, RESET_COLOR, splitGraphemes, stringWidth, stripAnsi } from "./ansi";
+import {
+  COLOR_START_REGEX,
+  graphemeWidth,
+  RESET_COLOR,
+  splitGraphemes,
+  stringWidth,
+  stripAnsi,
+} from "./ansi";
 
 const QUOTE_WIDTH = 2;
 

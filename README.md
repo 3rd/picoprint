@@ -21,11 +21,12 @@ npm install picoprint
 import p, { c } from 'picoprint';
 
 // CommonJS
-const p = require('picoprint');
-const { c } = p;
+const picoprint = require('picoprint');
+const p = picoprint.default;
+const { c } = picoprint;
 ```
 
-Use `p` for the main API and `c` for colors, also available as `p.color` (or `p.c`). Every option and result type (`BoxOptions`, `TableOptions`, `TreeNode`, …) is exported from the package root for typed usage.
+Use `p` for the main API. Colors are available as `p.c`, `p.color`, or the named export `c`. Every option and result type (`BoxOptions`, `TableOptions`, `TreeNode`, …) is exported from the package root for typed usage.
 
 ## Quick start
 
@@ -75,7 +76,7 @@ p.table([{ id: 1, status: 'ok' }], { offset: 2 });
 - 🎨 **Rich formatting** - Chainable colors, backgrounds, styles, gradients, RGB/hex, and rainbow helpers
 - 📦 **Box drawing** - Borders, titles, padding, panels, and backgrounds
 - 📊 **Tables** - Arrays, plain objects, Maps, and side-by-side comparison
-- 🌳 **Trees** - Tree rendering, object conversion, search/stats, and directory output
+- 🌳 **Trees** - Tree rendering, object conversion, search, and directory output
 - 🔍 **Diffs** - Object diffs, word diffs, and side-by-side comparison
 - 💻 **Code highlighting** - Line numbers and optional `bat` syntax highlighting
 - 📅 **Calendars** - ascii calendars with event markers
@@ -226,11 +227,10 @@ p.tree.fromObject({ user: { name: 'Alice', settings: { theme: 'dark' } } }, 'Con
 p.tree.fromObject({ user: { name: 'Alice' } }, { showValues: false });
 p.tree.fromObject(cyclicObject); // circular references render as [Circular]
 
-// search, stats, multiple trees
+// search and multiple trees
 p.tree.search(node, 'leaf');
 p.tree.search(node, 'false'); // searches node names and defined values, including false/0/null
 p.tree.search(node, 'leaf', { filter: (entry) => entry.metadata?.visible !== false });
-p.tree.stats(node, { offset: 2 });
 p.tree.multi([node, node]);
 p.tree.multi([node, undefined, node]); // undefined entries are skipped and visible trees are numbered in order
 
@@ -285,11 +285,11 @@ p.diff.words(text1, text2, { ignoreCase: true, ignoreWhitespace: true });
 p.diff.compare(leftData, rightData, { labels: ['Dev', 'Prod'] });
 
 // structural diff as data (no printing)
-const changes = p.diff.nodes(obj1, obj2);
+const changes = p.diff.deep(obj1, obj2);
 // [{ type: 'modified', path: ['age'], pathSegments: [{ kind: 'key', key: 'age' }], key: 'age', value1: 30, value2: 31 }, ...]
 ```
 
-`p.diff.words()` uses sequence matching, so inserted words do not make shifted unchanged words look deleted and re-added. `p.diff.nodes()` compares built-in values such as `Date`, `RegExp`, `Error`, `Map`, and `Set` instead of treating them as empty plain objects.
+`p.diff.words()` uses sequence matching, so inserted words do not make shifted unchanged words look deleted and re-added. `p.diff.deep()` compares built-in values such as `Date`, `RegExp`, `Error`, `Map`, and `Set` instead of treating them as empty plain objects.
 
 Diff nodes include display `path: string[]` and typed `pathSegments` so object keys such as `"[0]"` are distinguishable from array indexes.
 
@@ -347,7 +347,7 @@ lines.writeln('Line 2');
 lines.close();
 
 // pretty-printed values
-const values = p.stream.pp();
+const values = p.stream.prettyPrint();
 values.value({ data: 'value' });
 values.text('done');
 values.close();
@@ -386,11 +386,10 @@ Every batch renderer prints to the terminal **and** returns the rendered string,
 | Call | Prints | Returns |
 | --- | --- | --- |
 | `p(value)`, `p.log(...)`, and string-content renderers | yes | rendered string |
-| `p.box(() => ...)` and `p.box.panel(..., () => ...)` | yes | rendered string, or `Promise<string>` for async callbacks |
+| `p.box(() => ...)` and `p.box.panel(() => ..., options?)` | yes | rendered string, or `Promise<string>` for async callbacks |
 | `p.format(() => ...)` | no | captured rendered string, or `Promise<string>` for async callbacks |
-| `p.stream.box/table/tree/pp(...)` | yes, incrementally as you call its methods | stream handle |
-| `p.tree.stats(node, options?)` | yes | `TreeStatsResult` with `output` containing the rendered summary |
-| `p.diff.nodes(a, b)` | no | `DiffNode[]` |
+| `p.stream.box/table/tree/prettyPrint(...)` | yes, incrementally as you call its methods | stream handle |
+| `p.diff.deep(a, b)` | no | `DiffNode[]` |
 
 Callback boxes capture output produced by picoprint calls such as `p.log`, `p.table`, and `p.tree`. They do not capture native `console.log`. Await callback boxes and panels when the callback is async.
 
@@ -449,12 +448,12 @@ The default export `p` is both a function and an object:
 - `p.box(content | fn, options?)`, `p.box.panel(content | fn, options?)`; async callbacks return `Promise<string>`
 - `p.line(labelOrOptions?)` and `p.line.*` shortcuts; use `labelColor` to style labels
 - `p.table(data, options?)`, `p.table.compare(left, right)`
-- `p.tree(node, options?)` and `p.tree.fromObject/multi/search/stats/directory`
+- `p.tree(node, options?)` and `p.tree.fromObject/multi/search/directory`
 - `p.code(source, languageOrOptions?)`; use `frame: boolean | LineStyleName` for bordered code
-- `p.diff(a, b, options?)`, `p.diff.words(a, b, options?)`, `p.diff.compare(a, b, options?)`, `p.diff.nodes(a, b)`
+- `p.diff(a, b, options?)`, `p.diff.words(a, b, options?)`, `p.diff.compare(a, b, options?)`, `p.diff.deep(a, b)`
 - `p.calendar(options?)` or `p.calendar(date?, options?)`
-- `p.trace(err, options?)`, `p.trace.stack(options?)` or `p.trace.stack(err?, options?)`, `p.trace.error(err, options?)`, and `p.trace.callStack(options?)` with `StackOptions`
-- `p.stream.box/table/tree/pp`
+- `p.trace(err, options?)`, `p.trace.stack(options?)` or `p.trace.stack(err?, options?)`, `p.trace.error(err, options?)`, `p.error(err, options?)`, and `p.trace.callStack(options?)` with `StackOptions`
+- `p.stream.box/table/tree/prettyPrint`
 - `p.format(fn)` — capture picoprint output produced by `fn`, print nothing; async callbacks return `Promise<string>`
 - `p.indent(amount?)` / `p.dedent()` — global indentation; each `indent` pushes one level (default 2 spaces), each `dedent` pops one level
 - `p.configure(options)` / `p.getConfig()` / `p.resetConfig()`

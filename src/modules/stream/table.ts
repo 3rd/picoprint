@@ -60,8 +60,9 @@ export const table = (opts: TableStreamOptions): TableStream => {
   const showIndex = Boolean(opts.showIndex);
   const headers = showIndex ? ["#", ...baseCols] : baseCols;
 
+  const columnWidth = Math.max(maxWidth, 3);
   const widths: Record<string, number> = {};
-  for (const h of headers) widths[h] = Math.max(stringWidth(h), 3, Math.min(maxWidth, stringWidth(h)));
+  for (const h of headers) widths[h] = Math.max(stringWidth(h), columnWidth);
 
   const drawLine = (where: "bottom" | "middle" | "top") => {
     let out = "";

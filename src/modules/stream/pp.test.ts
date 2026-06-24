@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
 import { _resetWriterStack, pushWriter } from "@/utils/writer";
-import { prettyPrint } from "./index";
 import { pp } from "./pp";
 
 describe("stream.pp", () => {
@@ -14,10 +13,6 @@ describe("stream.pp", () => {
 
   afterEach(() => {
     _resetWriterStack();
-  });
-
-  it("exports prettyPrint as a compatibility alias", () => {
-    expect(prettyPrint).toBe(pp);
   });
 
   it("prints simple primitive", () => {

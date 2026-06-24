@@ -18,8 +18,9 @@ const intlWithSegmenter = Intl as {
     options?: { granularity?: "grapheme" },
   ) => { segment: (input: string) => Iterable<{ segment: string }> };
 } & typeof Intl;
-const graphemeSegmenter = intlWithSegmenter.Segmenter
-  ? new intlWithSegmenter.Segmenter(undefined, { granularity: "grapheme" })
+const graphemeSegmenter =
+  intlWithSegmenter.Segmenter ?
+    new intlWithSegmenter.Segmenter(undefined, { granularity: "grapheme" })
   : undefined;
 
 // east asian wide/fullwidth blocks plus the common emoji blocks

@@ -40,11 +40,9 @@ const formatter = (open: string, close: string, replace: string = open) => {
 
 const disabledColor = (): ColorFunction => String;
 
-const brandFg = (fn: ColorFunction): ForegroundColorFunction =>
-  Object.assign(fn, { __kind: "fg" as const });
+const brandFg = (fn: ColorFunction): ForegroundColorFunction => Object.assign(fn, { __kind: "fg" as const });
 
-const brandBg = (fn: ColorFunction): BackgroundColorFunction =>
-  Object.assign(fn, { __kind: "bg" as const });
+const brandBg = (fn: ColorFunction): BackgroundColorFunction => Object.assign(fn, { __kind: "bg" as const });
 
 const assertByteChannel = (value: unknown, optionName: string) => {
   if (typeof value !== "number") {
@@ -213,18 +211,14 @@ export const rgb = (r: number, g: number, b: number): ForegroundColorFunction =>
   const red = assertByteChannel(r, "rgb r");
   const green = assertByteChannel(g, "rgb g");
   const blue = assertByteChannel(b, "rgb b");
-  return brandFg(
-    supportedFormatter(`\u001b[38;2;${red};${green};${blue}m`, "\u001b[39m"),
-  );
+  return brandFg(supportedFormatter(`\u001b[38;2;${red};${green};${blue}m`, "\u001b[39m"));
 };
 
 export const bgRgb = (r: number, g: number, b: number): BackgroundColorFunction => {
   const red = assertByteChannel(r, "bgRgb r");
   const green = assertByteChannel(g, "bgRgb g");
   const blue = assertByteChannel(b, "bgRgb b");
-  return brandBg(
-    supportedFormatter(`\u001b[48;2;${red};${green};${blue}m`, "\u001b[49m"),
-  );
+  return brandBg(supportedFormatter(`\u001b[48;2;${red};${green};${blue}m`, "\u001b[49m"));
 };
 
 export const hexToRgb = (hex: string) => {

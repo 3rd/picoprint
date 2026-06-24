@@ -1,4 +1,8 @@
-import { assertBooleanOption, assertNonNegativeIntegerOption, assertPlainOptionsObject } from "../../utils/options";
+import {
+  assertBooleanOption,
+  assertNonNegativeIntegerOption,
+  assertPlainOptionsObject,
+} from "../../utils/options";
 import { applyTextWrapping } from "../../utils/string";
 import { isSimpleValue } from "../../utils/value-helpers";
 import { renderAndReturn, write } from "../../utils/writer";

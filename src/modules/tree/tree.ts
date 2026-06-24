@@ -124,7 +124,7 @@ function assertRequiredObject(value: unknown, optionName: string): asserts value
 function assertTreeNode(
   value: unknown,
   optionName: string,
-  seen: WeakSet<object> = new WeakSet(),
+  seen = new WeakSet<object>(),
 ): asserts value is TreeNode {
   assertRequiredObject(value, optionName);
   const node = value;
@@ -135,7 +135,9 @@ function assertTreeNode(
   if (node.metadata !== undefined) assertPlainOptionsObject(node.metadata, `${optionName}.metadata`);
   try {
     if (node.children === undefined) return;
-    if (!Array.isArray(node.children)) throw new TypeError(`picoprint ${optionName}.children must be TreeNode[]`);
+    if (!Array.isArray(node.children)) {
+      throw new TypeError(`picoprint ${optionName}.children must be TreeNode[]`);
+    }
     for (const [index, child] of node.children.entries()) {
       assertTreeNode(child, `${optionName}.children[${index}]`, seen);
     }
@@ -144,7 +146,10 @@ function assertTreeNode(
   }
 }
 
-function assertTreeNodeArray(value: unknown, optionName: string): asserts value is readonly (TreeNode | undefined)[] {
+function assertTreeNodeArray(
+  value: unknown,
+  optionName: string,
+): asserts value is readonly (TreeNode | undefined)[] {
   if (!Array.isArray(value)) throw new TypeError(`picoprint ${optionName} must be TreeNode[]`);
   const seen = new WeakSet<object>();
   for (const [index, node] of value.entries()) {
@@ -155,7 +160,7 @@ function assertTreeNodeArray(value: unknown, optionName: string): asserts value 
 function assertDirectoryEntry(
   value: unknown,
   optionName: string,
-  seen: WeakSet<object> = new WeakSet(),
+  seen = new WeakSet<object>(),
 ): asserts value is DirectoryEntry {
   assertRequiredObject(value, optionName);
   const entry = value;
@@ -602,7 +607,11 @@ const resolveTreeFromObjectArgs = (nameOrOptions: unknown, options: TreeOptions)
 
 export function treeFromObject(obj: unknown, options?: TreeOptions): string;
 export function treeFromObject(obj: unknown, name?: string, options?: TreeOptions): string;
-export function treeFromObject(obj: unknown, nameOrOptions: TreeOptions | string = "root", options: TreeOptions = {}) {
+export function treeFromObject(
+  obj: unknown,
+  nameOrOptions: TreeOptions | string = "root",
+  options: TreeOptions = {},
+) {
   const resolved = resolveTreeFromObjectArgs(nameOrOptions, options);
   validateTreeOptions(resolved.options);
   return tree(objectToTree(obj, resolved.name), {
@@ -630,50 +639,4 @@ export const treeSearch = (treeNode: TreeNode, searchTerm: string, options: Tree
     ...options,
     filter: (node) => isNodeMatchingSearch(node, searchTerm) && (!userFilter || userFilter(node)),
   });
-};
-
-export interface TreeStatsResult {
-  nodeCount: number;
-  leafCount: number;
-  maxDepth: number;
-  valueCount: number;
-  output: string;
-}
-
-export const treeStats = (treeNode: TreeNode, options: RenderOptions = {}): TreeStatsResult => {
-  assertTreeNode(treeNode, "tree.stats node");
-  assertPlainOptionsObject(options as unknown, "tree.stats options");
-  let nodeCount = 0;
-  let leafCount = 0;
-  let maxDepth = 0;
-  let valueCount = 0;
-
-  const traverse = (node: TreeNode, depth = 0) => {
-    nodeCount++;
-    maxDepth = Math.max(maxDepth, depth);
-
-    if (node.value !== undefined) {
-      valueCount++;
-    }
-
-    if (node.children && node.children.length > 0) {
-      for (const child of node.children) traverse(child, depth + 1);
-    } else {
-      leafCount++;
-    }
-  };
-
-  traverse(treeNode);
-
-  const output = renderAndReturn(() => {
-    const ctx2 = resolveRenderContext(options);
-    const indent2 = " ".repeat(ctx2.offset);
-    write(`${indent2}${colors.gray("Total nodes:")} ${colors.yellow(nodeCount.toString())}`);
-    write(`${indent2}${colors.gray("Leaf nodes:")} ${colors.green(leafCount.toString())}`);
-    write(`${indent2}${colors.gray("Max depth:")} ${colors.blue(maxDepth.toString())}`);
-    write(`${indent2}${colors.gray("Nodes with values:")} ${colors.magenta(valueCount.toString())}`);
-    write(`${indent2}${colors.gray("Tree name:")} ${colors.cyan(treeNode.name)}`);
-  });
-
-  return { nodeCount, leafCount, maxDepth, valueCount, output };
 };

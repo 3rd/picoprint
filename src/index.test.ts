@@ -24,7 +24,7 @@ import type {
   GradientLineOptions,
   LineOptions,
   LineStyleName,
-  PicocprintConfig,
+  PicoprintConfig,
   PP,
   PPStream,
   PPStreamOptions,
@@ -40,7 +40,6 @@ import type {
   TraceOptions,
   TreeNode,
   TreeOptions,
-  TreeStatsResult,
   TreeStream,
   TreeStreamOptions,
   TreeStyleName,
@@ -76,7 +75,7 @@ type RootPublicTypeSmoke = {
   pp?: PP;
   ppStream?: PPStream;
   ppStreamOptions?: PPStreamOptions;
-  picocprintConfig?: PicocprintConfig;
+  picoprintConfig?: PicoprintConfig;
   prettyPrintOptions?: PrettyPrintOptions;
   renderContext?: RenderContext;
   renderOptions?: RenderOptions;
@@ -89,7 +88,6 @@ type RootPublicTypeSmoke = {
   traceOptions?: TraceOptions;
   treeNode?: TreeNode;
   treeOptions?: TreeOptions;
-  treeStatsResult?: TreeStatsResult;
   treeStream?: TreeStream;
   treeStreamOptions?: TreeStreamOptions;
   treeStyleName?: TreeStyleName;
@@ -139,6 +137,18 @@ const rootPublicInputSmoke = {
   directoryEntry: DirectoryEntry;
 };
 
+const assertRootAsyncTypes = () => {
+  const maybeAsync = (() => undefined) as () => Promise<void> | void;
+  const formatResult: Promise<string> | string = p.format(maybeAsync);
+  const boxResult: Promise<string> | string = p.box(maybeAsync);
+  const panelResult: Promise<string> | string = p.box.panel(maybeAsync);
+  const asyncPanelResult: Promise<string> = p.box.panel(async () => undefined);
+  void formatResult;
+  void boxResult;
+  void panelResult;
+  void asyncPanelResult;
+};
+
 describe("p default export wiring", () => {
   let logOutput: string[];
 
@@ -152,7 +162,7 @@ describe("p default export wiring", () => {
     p.resetConfig();
   });
 
-  it("exposes the colors namespace as c, p.c, and p.color", () => {
+  it("exposes the colors namespace as named c, p.c, and p.color", () => {
     expect(c).toBe(p.color);
     expect(p.c).toBe(p.color);
     expect(typeof c.red).toBe("function");
@@ -161,21 +171,22 @@ describe("p default export wiring", () => {
   it("keeps reusable public types exported from the root", () => {
     expect(rootPublicTypeSmoke).toEqual({});
     expect(rootPublicInputSmoke.tableOptions.columns).toEqual(["name"]);
-    if (false) {
-      const maybeAsync = (() => undefined) as () => void | Promise<void>;
-      const formatResult: string | Promise<string> = p.format(maybeAsync);
-      const boxResult: string | Promise<string> = p.box(maybeAsync);
-      const panelResult: string | Promise<string> = p.box.panel(maybeAsync);
-      const legacyPanelResult: string | Promise<string> = p.box.panel("Legacy", maybeAsync);
-      const asyncLegacyPanelResult: Promise<string> = p.box.panel("Legacy", async () => undefined);
-      expect([formatResult, boxResult, panelResult, legacyPanelResult, asyncLegacyPanelResult]).toHaveLength(5);
-    }
+    expect(typeof assertRootAsyncTypes).toBe("function");
   });
 
   it("pretty-prints through the callable root", () => {
     const result = p({ a: 1 });
     expect(result).toContain("a");
     expect(logOutput.length).toBeGreaterThan(0);
+  });
+
+  it("logs shared sibling references without circular markers", () => {
+    const shared = { id: 1 };
+    p.log({ first: shared, second: shared });
+
+    const output = logOutput.join("\n");
+    expect(output).not.toContain("[Circular]");
+    expect(output.match(/id/g)).toHaveLength(2);
   });
 
   it("honors options passed to the callable root", () => {
@@ -201,11 +212,9 @@ describe("p default export wiring", () => {
     expect(typeof p.tree.fromObject).toBe("function");
     expect(typeof p.tree.multi).toBe("function");
     expect(typeof p.tree.search).toBe("function");
-    expect(typeof p.tree.stats).toBe("function");
     expect(typeof p.tree.directory).toBe("function");
     expect(typeof p.diff).toBe("function");
     expect(typeof p.diff.words).toBe("function");
-    expect(typeof p.diff.nodes).toBe("function");
     expect(typeof p.diff.deep).toBe("function");
     expect(typeof p.diff.compare).toBe("function");
     expect(typeof p.trace).toBe("function");
@@ -222,9 +231,7 @@ describe("p default export wiring", () => {
     expect(typeof p.stream.box).toBe("function");
     expect(typeof p.stream.table).toBe("function");
     expect(typeof p.stream.tree).toBe("function");
-    expect(typeof p.stream.pp).toBe("function");
     expect(typeof p.stream.prettyPrint).toBe("function");
-    expect(p.stream.prettyPrint).toBe(p.stream.pp);
   });
 
   it("renders multiple trees through p.tree.multi and skips undefined entries", () => {
@@ -249,16 +256,6 @@ describe("p default export wiring", () => {
     expect(() => p.stream.box({ style: invalidStyle })).toThrow("picoprint style must be one of:");
   });
 
-  it("streams pretty-printed values via p.stream.pp", () => {
-    const stream = p.stream.pp();
-    stream.value({ x: 1 });
-    stream.text("done");
-    stream.close();
-    const output = logOutput.join("\n");
-    expect(output).toContain("x");
-    expect(output).toContain("done");
-  });
-
   it("streams pretty-printed values via p.stream.prettyPrint", () => {
     const stream = p.stream.prettyPrint();
     stream.value({ x: 1 });
@@ -280,19 +277,33 @@ describe("p default export wiring", () => {
 
   it("throws stable package errors for invalid root helper arguments", () => {
     expect(() => p.format(12 as never)).toThrow("picoprint format callback must be a function");
-    expect(() => p.indent("2" as never)).toThrow("picoprint indent amount must be a non-negative finite number");
-    expect(() => p.createContext("2" as never)).toThrow("picoprint offset must be a non-negative finite number");
-    expect(() => p("hello", { offset: "2" as never })).toThrow("picoprint offset must be a non-negative finite number");
+    expect(() => p.indent("2" as never)).toThrow(
+      "picoprint indent amount must be a non-negative finite number",
+    );
+    expect(() => p.createContext("2" as never)).toThrow(
+      "picoprint offset must be a non-negative finite number",
+    );
+    expect(() => p("hello", { offset: "2" as never })).toThrow(
+      "picoprint offset must be a non-negative finite number",
+    );
     expect(() => p("hello", new Date() as never)).toThrow("picoprint pp options must be an object");
     expect(() => p.box("hello", new Date() as never)).toThrow("picoprint box options must be an object");
     expect(() => p.box("hello", { renderContext: { offset: 0 } as never })).toThrow(
       "picoprint renderContext must be a RenderContext",
     );
     expect(() => p.line(new Date() as never)).toThrow("picoprint line options must be an object");
-    expect(() => p.line.gradient(new Date() as never)).toThrow("picoprint line.gradient options must be an object");
-    expect(() => p.table([{ a: 1 }], new Date() as never)).toThrow("picoprint table options must be an object");
-    expect(() => p.table([{ a: 1 }], { align: new Date() as never })).toThrow("picoprint align must be an object");
-    expect(() => p.diff({ a: 1 }, { a: 2 }, new Date() as never)).toThrow("picoprint diff options must be an object");
+    expect(() => p.line.gradient(new Date() as never)).toThrow(
+      "picoprint line.gradient options must be an object",
+    );
+    expect(() => p.table([{ a: 1 }], new Date() as never)).toThrow(
+      "picoprint table options must be an object",
+    );
+    expect(() => p.table([{ a: 1 }], { align: new Date() as never })).toThrow(
+      "picoprint align must be an object",
+    );
+    expect(() => p.diff({ a: 1 }, { a: 2 }, new Date() as never)).toThrow(
+      "picoprint diff options must be an object",
+    );
     expect(() => p.code("hello", new Date() as never)).toThrow("picoprint code options must be an object");
     expect(() => p.calendar(new Date(2025, 0, 1), new Date() as never)).toThrow(
       "picoprint calendar options must be an object",
@@ -304,7 +315,9 @@ describe("p default export wiring", () => {
     expect(() => p.trace.stack(123 as never)).toThrow(
       "picoprint trace.stack argument must be an Error, stack string, or options object",
     );
-    expect(() => p.tree({ name: "root" }, new Date() as never)).toThrow("picoprint tree options must be an object");
+    expect(() => p.tree({ name: "root" }, new Date() as never)).toThrow(
+      "picoprint tree options must be an object",
+    );
     expect(() => p.tree(new Date() as never)).toThrow("picoprint tree node must be an object");
     expect(() => p.tree({ name: "root", metadata: new Date() as never })).toThrow(
       "picoprint tree node.metadata must be an object",
@@ -312,12 +325,13 @@ describe("p default export wiring", () => {
     expect(() => p.tree.fromObject({ a: 1 }, new Date() as never)).toThrow(
       "picoprint tree.fromObject second argument must be a name string or options object",
     );
-    expect(() => p.tree.stats({ name: "root" }, new Date() as never)).toThrow(
-      "picoprint tree.stats options must be an object",
-    );
     expect(() => p.stream.box(new Date() as never)).toThrow("picoprint stream.box options must be an object");
-    expect(() => p.stream.pp(new Date() as never)).toThrow("picoprint stream.pp options must be an object");
-    expect(() => p.stream.tree(new Date() as never)).toThrow("picoprint stream.tree options must be an object");
+    expect(() => p.stream.prettyPrint(new Date() as never)).toThrow(
+      "picoprint stream.pp options must be an object",
+    );
+    expect(() => p.stream.tree(new Date() as never)).toThrow(
+      "picoprint stream.tree options must be an object",
+    );
     class TableStreamOptionsInstance {
       columns = ["name"];
     }
@@ -328,23 +342,6 @@ describe("p default export wiring", () => {
       "picoprint align must be an object",
     );
     expect(logOutput).toHaveLength(0);
-  });
-
-  it("exposes p.error as the rich error renderer alias", () => {
-    expect(p.error).toBe(p.trace.error);
-
-    const output = p.error(new TypeError("bad input"));
-
-    expect(output).toContain("bad input");
-    expect(output).toContain("Type: TypeError");
-    expect(logOutput.join("\n")).toBe(output);
-  });
-
-  it("passes options through p.error alias", () => {
-    const output = p.error("bad input", { offset: 2, footer: false });
-
-    expect(output).toMatch(/^ {2}/);
-    expect(logOutput[0]).toMatch(/^ {2}/);
   });
 
   it("passes stack options through p.trace.callStack", () => {
@@ -395,15 +392,8 @@ describe("p default export wiring", () => {
     expect(logOutput.join("\n")).toBe(output);
   });
 
-  it("deep-diffs through p.diff.deep with the public two-arg shape", () => {
+  it("exposes p.diff.deep as the pure diff node API", () => {
     const nodes = p.diff.deep({ a: 1 }, { a: 2 });
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.type).toBe("modified");
-  });
-
-  it("exposes p.diff.nodes as the pure diff node alias", () => {
-    expect(p.diff.nodes).toBe(p.diff.deep);
-    const nodes = p.diff.nodes({ a: 1 }, { a: 2 });
     expect(nodes).toHaveLength(1);
     expect(nodes[0]?.type).toBe("modified");
   });

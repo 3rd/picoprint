@@ -68,12 +68,12 @@ describe("formatRelativeTime", () => {
   });
 
   it("should format future time", () => {
-    const future = new Date(Date.now() + 60 * 1000);
+    const future = new Date(Date.now() + 61 * 1000);
     expect(formatRelativeTime(future)).toBe("in 1 minute");
   });
 
   it("should format future hours", () => {
-    const future = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const future = new Date(Date.now() + (2 * 60 * 60 + 1) * 1000);
     expect(formatRelativeTime(future)).toBe("in 2 hours");
   });
 });

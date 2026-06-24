@@ -121,6 +121,15 @@ describe("table", () => {
       expect(output).toContain("ok");
     });
 
+    it("should render regexp and error cells by value", () => {
+      table([{ pattern: /ok/i, failure: new Error("boom") }]);
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("/ok/i");
+      expect(output).toContain("[Error: boom]");
+      expect(output).not.toContain("[Object]");
+    });
+
     it("should handle empty arrays", () => {
       table([]);
 
@@ -128,9 +137,8 @@ describe("table", () => {
       expect(output).toContain("─");
     });
 
-    it("should reject invalid data at the type level", () => {
-      // @ts-expect-error -- string is not a valid TableData
-      expect(() => table("invalid")).toThrow(
+    it("should reject invalid table data", () => {
+      expect(() => table("invalid" as never)).toThrow(
         "picoprint table data must be an array, plain object, or Map",
       );
     });
@@ -219,9 +227,7 @@ describe("table", () => {
       );
       expect(() => table(data, 12 as never)).toThrow("picoprint table options must be an object");
       expect(() => table(data, null as never)).toThrow("picoprint table options must be an object");
-      expect(() => table(data, new Date() as never)).toThrow(
-        "picoprint table options must be an object",
-      );
+      expect(() => table(data, new Date() as never)).toThrow("picoprint table options must be an object");
       expect(() => table(data, { columns: "a" as never })).toThrow("picoprint columns must be string[]");
       expect(() => table(data, { maxWidth: -1 })).toThrow(
         "picoprint maxWidth must be a non-negative integer",
@@ -229,15 +235,11 @@ describe("table", () => {
       expect(() => table(data, { align: { a: "middle" as never } })).toThrow(
         "picoprint align.a must be one of:",
       );
-      expect(() => table(data, { align: new Date() as never })).toThrow(
-        "picoprint align must be an object",
-      );
+      expect(() => table(data, { align: new Date() as never })).toThrow("picoprint align must be an object");
       expect(() => table(data, { showIndex: "yes" as never })).toThrow(
         "picoprint showIndex must be a boolean",
       );
-      expect(() => table(data, { compact: "yes" as never })).toThrow(
-        "picoprint compact must be a boolean",
-      );
+      expect(() => table(data, { compact: "yes" as never })).toThrow("picoprint compact must be a boolean");
       expect(logOutput).toHaveLength(0);
     });
   });
@@ -259,11 +261,16 @@ describe("table", () => {
       expect(output).toContain("✗");
     });
 
-    it("should reject ignored columns at the type level", () => {
-      // @ts-expect-error -- table.compare owns its comparison columns
-      const options: NonNullable<Parameters<typeof compareInTable>[2]> = { columns: ["key"] };
+    it("should keep comparison columns even when unsafe options include columns", () => {
+      const options = { columns: ["key"] } as never;
 
-      expect(options as unknown).toEqual({ columns: ["key"] });
+      compareInTable({ a: 1 }, { a: 2 }, options);
+
+      const output = logOutput.join("\n");
+      expect(output).toContain("key");
+      expect(output).toContain("left");
+      expect(output).toContain("right");
+      expect(output).toContain("match");
     });
 
     it("should throw stable errors for invalid compare options", () => {

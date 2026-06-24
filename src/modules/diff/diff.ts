@@ -13,7 +13,7 @@ import { getType, isSimpleValue } from "../../utils/value-helpers";
 import { renderAndReturn, write } from "../../utils/writer";
 import { resolveRenderContext } from "../context";
 
-export type DiffPathSegment = { kind: "key"; key: string } | { kind: "index"; index: number };
+export type DiffPathSegment = { kind: "index"; index: number } | { kind: "key"; key: string };
 
 export type DiffNode =
   | {
@@ -265,7 +265,8 @@ const compareValues = (
 };
 
 // structural diff of two values as data, no printing
-export const deepDiff = (obj1: unknown, obj2: unknown): DiffNode[] => walkDiff(obj1, obj2, [], new Map(), new Map());
+export const deepDiff = (obj1: unknown, obj2: unknown): DiffNode[] =>
+  walkDiff(obj1, obj2, [], new Map(), new Map());
 
 interface RenderDiffParams {
   obj1: unknown;
@@ -322,7 +323,9 @@ const renderDiff = (params: RenderDiffParams): string[] => {
   }
 
   if (isSimpleValue(renderObj1) && isSimpleValue(renderObj2)) {
-    if (renderObj1 !== renderObj2) {
+    const type1 = getType(renderObj1);
+    const type2 = getType(renderObj2);
+    if (type1 !== type2 || !sameLeafValue(renderObj1, renderObj2, type1)) {
       lines.push(`${prefix}${colors.red("-")} ${formatValueColored(renderObj1, QUOTE_STRINGS)}`);
       lines.push(`${prefix}${colors.green("+")} ${formatValueColored(renderObj2, QUOTE_STRINGS)}`);
     } else if (options.showUnchanged) {
@@ -353,9 +356,13 @@ const renderDiff = (params: RenderDiffParams): string[] => {
 
       if (itemDiff) {
         if (itemDiff.type === "added") {
-          lines.push(`${prefix}${colors.green("+")} [${i}]: ${formatValueColored(renderObj2[i], QUOTE_STRINGS)}`);
+          lines.push(
+            `${prefix}${colors.green("+")} [${i}]: ${formatValueColored(renderObj2[i], QUOTE_STRINGS)}`,
+          );
         } else if (itemDiff.type === "deleted") {
-          lines.push(`${prefix}${colors.red("-")} [${i}]: ${formatValueColored(renderObj1[i], QUOTE_STRINGS)}`);
+          lines.push(
+            `${prefix}${colors.red("-")} [${i}]: ${formatValueColored(renderObj1[i], QUOTE_STRINGS)}`,
+          );
         } else if (itemDiff.type === "modified") {
           lines.push(`${prefix}${colors.yellow("~")} [${i}]:`);
           if (depth + 1 >= (options.maxDepth ?? 10)) {
@@ -565,11 +572,15 @@ const buildLcsWordDiffs = (
   keys1: readonly string[],
   keys2: readonly string[],
 ): WordDiffItem[] => {
-  const lengths = Array.from({ length: keys1.length + 1 }, () => Array(keys2.length + 1).fill(0));
+  const lengths: number[][] = Array.from({ length: keys1.length + 1 }, () =>
+    Array.from({ length: keys2.length + 1 }, () => 0),
+  );
   for (let i = keys1.length - 1; i >= 0; i--) {
     for (let j = keys2.length - 1; j >= 0; j--) {
       lengths[i]![j] =
-        keys1[i] === keys2[j] ? lengths[i + 1]![j + 1]! + 1 : Math.max(lengths[i + 1]![j]!, lengths[i]![j + 1]!);
+        keys1[i] === keys2[j] ?
+          lengths[i + 1]![j + 1]! + 1
+        : Math.max(lengths[i + 1]![j]!, lengths[i]![j + 1]!);
     }
   }
 
@@ -642,9 +653,9 @@ const buildWordDiffs = (
   const middleCells = (middleKeys1.length + 1) * (middleKeys2.length + 1);
 
   diffs.push(
-    ...(middleCells <= WORD_DIFF_LCS_CELL_LIMIT
-      ? buildLcsWordDiffs(middleWords1, middleWords2, middleKeys1, middleKeys2)
-      : buildPositionalWordDiffs(middleWords1, middleWords2, middleKeys1, middleKeys2)),
+    ...(middleCells <= WORD_DIFF_LCS_CELL_LIMIT ?
+      buildLcsWordDiffs(middleWords1, middleWords2, middleKeys1, middleKeys2)
+    : buildPositionalWordDiffs(middleWords1, middleWords2, middleKeys1, middleKeys2)),
   );
 
   for (let i = end1 + 1; i < words1.length; i++) {

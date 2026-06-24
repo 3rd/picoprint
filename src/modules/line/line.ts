@@ -31,8 +31,6 @@ export interface LineOptions {
   padding?: number;
   separator?: { left: string; right: string } | false | string;
   labelColor?: (text: string) => string;
-  /** @deprecated use labelColor */
-  titleColor?: (text: string) => string;
   renderContext?: RenderOptions["renderContext"];
 }
 
@@ -55,8 +53,11 @@ const validateLineOptions = (options: LineOptions) => {
   assertEnumOption(options.labelAlign, "labelAlign", ALIGN_VALUES);
   assertNonNegativeIntegerOption(options.padding, "padding");
   assertColorFunctionOption(options.labelColor, "labelColor");
-  assertColorFunctionOption(options.titleColor, "titleColor");
-  if (options.separator !== undefined && options.separator !== false && typeof options.separator !== "string") {
+  if (
+    options.separator !== undefined &&
+    options.separator !== false &&
+    typeof options.separator !== "string"
+  ) {
     if (!isPlainRecord(options.separator)) {
       throw new TypeError("picoprint separator must be a string, false, or an object");
     }
@@ -196,7 +197,7 @@ export const line = (options: LineOptions | string = {}) =>
             align,
             padding,
             separator: opts.separator,
-            labelColor: opts.labelColor ?? opts.titleColor,
+            labelColor: opts.labelColor,
           }),
       );
     } else {

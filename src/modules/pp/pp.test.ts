@@ -167,8 +167,8 @@ describe("pp", () => {
 
   describe("circular references", () => {
     it("should handle circular references in objects", () => {
-      const obj = { name: "test" };
-      // @ts-expect-error
+      type CircularObject = { name: string; self?: CircularObject };
+      const obj: CircularObject = { name: "test" };
       obj.self = obj;
       pp(obj);
 
@@ -178,8 +178,7 @@ describe("pp", () => {
     });
 
     it("should handle circular references in arrays", () => {
-      const arr = [1, 2];
-      // @ts-expect-error
+      const arr: unknown[] = [1, 2];
       arr.push(arr);
       pp(arr);
 
@@ -188,20 +187,25 @@ describe("pp", () => {
       expect(lines).toContain("[0]");
       expect(lines).toContain("[1]");
     });
+
+    it("should not treat shared sibling references as circular", () => {
+      const shared = { id: 1 };
+      pp({ first: shared, second: shared }, { compact: false });
+
+      const lines = logOutput.join("\n");
+      expect(lines).not.toContain("[Circular]");
+      expect(lines.match(/id/g)).toHaveLength(2);
+    });
   });
 
   describe("options via configure", () => {
     it("throws stable errors for invalid options", () => {
       expect(() => pp({ a: 1 }, null as never)).toThrow("picoprint pp options must be an object");
-      expect(() => pp({ a: 1 }, new Date() as never)).toThrow(
-        "picoprint pp options must be an object",
-      );
+      expect(() => pp({ a: 1 }, new Date() as never)).toThrow("picoprint pp options must be an object");
       expect(() => pp({ a: 1 }, { maxDepth: -1 })).toThrow(
         "picoprint maxDepth must be a non-negative integer",
       );
-      expect(() => pp({ a: 1 }, { compact: "yes" as never })).toThrow(
-        "picoprint compact must be a boolean",
-      );
+      expect(() => pp({ a: 1 }, { compact: "yes" as never })).toThrow("picoprint compact must be a boolean");
       expect(logOutput).toHaveLength(0);
     });
 

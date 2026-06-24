@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { stripAnsi } from "@/utils/ansi";
 import { _resetWriterStack, pushWriter } from "@/utils/writer";
-import { directory, DirectoryEntry, tree, treeFromObject, treeMulti, TreeNode, treeSearch, treeStats } from "./tree";
+import { directory, DirectoryEntry, tree, treeFromObject, treeMulti, TreeNode, treeSearch } from "./tree";
 
 describe("tree", () => {
   let logOutput: string[];
@@ -153,18 +153,30 @@ describe("tree", () => {
     it("throws when style or color options are invalid", () => {
       expect(() => tree(treeNode, null as never)).toThrow("picoprint tree options must be an object");
       expect(() => tree(treeNode, new Date() as never)).toThrow("picoprint tree options must be an object");
-      expect(() => tree(treeNode, { style: "bogus" as never })).toThrow("picoprint tree style must be one of:");
-      expect(() => tree(treeNode, { showValues: "yes" as never })).toThrow("picoprint showValues must be a boolean");
+      expect(() => tree(treeNode, { style: "bogus" as never })).toThrow(
+        "picoprint tree style must be one of:",
+      );
+      expect(() => tree(treeNode, { showValues: "yes" as never })).toThrow(
+        "picoprint showValues must be a boolean",
+      );
       expect(() => tree(treeNode, { showMetadata: "yes" as never })).toThrow(
         "picoprint showMetadata must be a boolean",
       );
-      expect(() => tree(treeNode, { colors: "cyan" as never })).toThrow("picoprint tree.colors must be an object");
-      expect(() => tree(treeNode, { colors: new Date() as never })).toThrow("picoprint tree.colors must be an object");
+      expect(() => tree(treeNode, { colors: "cyan" as never })).toThrow(
+        "picoprint tree.colors must be an object",
+      );
+      expect(() => tree(treeNode, { colors: new Date() as never })).toThrow(
+        "picoprint tree.colors must be an object",
+      );
       expect(() => tree(treeNode, { colors: { node: "cyan" as never } })).toThrow(
         "picoprint tree.colors.node must be a function",
       );
-      expect(() => tree(treeNode, { maxDepth: -1 })).toThrow("picoprint maxDepth must be a non-negative integer");
-      expect(() => tree(treeNode, { filter: "nope" as never })).toThrow("picoprint filter must be a function");
+      expect(() => tree(treeNode, { maxDepth: -1 })).toThrow(
+        "picoprint maxDepth must be a non-negative integer",
+      );
+      expect(() => tree(treeNode, { filter: "nope" as never })).toThrow(
+        "picoprint filter must be a function",
+      );
       expect(() => tree(treeNode, { sort: "nope" as never })).toThrow("picoprint sort must be a function");
       expect(() => tree(treeNode, { collapseEmpty: "yes" as never })).toThrow(
         "picoprint collapseEmpty must be a boolean",
@@ -355,8 +367,12 @@ describe("tree", () => {
 
     it("throws stable errors for invalid multi-tree input", () => {
       expect(() => treeMulti(12 as never)).toThrow("picoprint tree.multi nodes must be TreeNode[]");
-      expect(() => treeMulti([{ name: "ok" }, 12 as never])).toThrow("picoprint tree.multi nodes[1] must be an object");
-      expect(() => treeMulti([{ name: "ok" }], 12 as never)).toThrow("picoprint tree options must be an object");
+      expect(() => treeMulti([{ name: "ok" }, 12 as never])).toThrow(
+        "picoprint tree.multi nodes[1] must be an object",
+      );
+      expect(() => treeMulti([{ name: "ok" }], 12 as never)).toThrow(
+        "picoprint tree options must be an object",
+      );
       expect(() => treeMulti([{ name: "ok" }], new Date() as never)).toThrow(
         "picoprint tree options must be an object",
       );
@@ -488,20 +504,36 @@ describe("tree", () => {
     it("throws when directory options are invalid", () => {
       const dir: DirectoryEntry = { name: "root", type: "directory" };
 
-      expect(() => directory(dir, null as never)).toThrow("picoprint tree.directory options must be an object");
-      expect(() => directory(dir, new Date() as never)).toThrow("picoprint tree.directory options must be an object");
-      expect(() => directory(dir, { showSizes: "yes" as never })).toThrow("picoprint showSizes must be a boolean");
-      expect(() => directory(dir, { showPaths: "yes" as never })).toThrow("picoprint showPaths must be a boolean");
-      expect(() => directory(dir, { fileIcons: "yes" as never })).toThrow("picoprint fileIcons must be a boolean");
+      expect(() => directory(dir, null as never)).toThrow(
+        "picoprint tree.directory options must be an object",
+      );
+      expect(() => directory(dir, new Date() as never)).toThrow(
+        "picoprint tree.directory options must be an object",
+      );
+      expect(() => directory(dir, { showSizes: "yes" as never })).toThrow(
+        "picoprint showSizes must be a boolean",
+      );
+      expect(() => directory(dir, { showPaths: "yes" as never })).toThrow(
+        "picoprint showPaths must be a boolean",
+      );
+      expect(() => directory(dir, { fileIcons: "yes" as never })).toThrow(
+        "picoprint fileIcons must be a boolean",
+      );
       expect(() => directory(dir, { sortBy: "bogus" as never })).toThrow("picoprint sortBy must be one of:");
-      expect(() => directory(dir, { maxDepth: 1.5 })).toThrow("picoprint maxDepth must be a non-negative integer");
-      expect(() => directory(dir, { filter: "nope" as never })).toThrow("picoprint filter must be a function");
+      expect(() => directory(dir, { maxDepth: 1.5 })).toThrow(
+        "picoprint maxDepth must be a non-negative integer",
+      );
+      expect(() => directory(dir, { filter: "nope" as never })).toThrow(
+        "picoprint filter must be a function",
+      );
     });
 
     it("throws stable errors for invalid directory entries", () => {
       expect(() => directory(undefined as never)).toThrow("picoprint tree.directory entry must be an object");
       expect(() => directory(12 as never)).toThrow("picoprint tree.directory entry must be an object");
-      expect(() => directory(new Date() as never)).toThrow("picoprint tree.directory entry must be an object");
+      expect(() => directory(new Date() as never)).toThrow(
+        "picoprint tree.directory entry must be an object",
+      );
       expect(() => directory({ type: "directory" } as never)).toThrow(
         "picoprint tree.directory entry.name must be a string",
       );
@@ -535,7 +567,9 @@ describe("tree", () => {
       const root: DirectoryEntry = { name: "root", type: "directory" };
       root.children = [root];
 
-      expect(() => directory(root)).toThrow("picoprint tree.directory entry.children[0] contains a circular reference");
+      expect(() => directory(root)).toThrow(
+        "picoprint tree.directory entry.children[0] contains a circular reference",
+      );
       expect(logOutput).toHaveLength(0);
     });
   });
@@ -792,100 +826,6 @@ describe("tree", () => {
       );
       expect(() => treeSearch(treeNode, "root", { filter: "nope" as never })).toThrow(
         "picoprint filter must be a function",
-      );
-      expect(logOutput).toHaveLength(0);
-    });
-  });
-
-  describe("treeStats", () => {
-    it("should calculate tree statistics", () => {
-      const treeNode: TreeNode = {
-        name: "root",
-        value: 1,
-        children: [
-          {
-            name: "branch1",
-            children: [
-              { name: "leaf1", value: 2 },
-              { name: "leaf2", value: 3 },
-            ],
-          },
-          {
-            name: "branch2",
-            children: [
-              {
-                name: "subbranch",
-                children: [{ name: "deepleaf", value: 4 }],
-              },
-            ],
-          },
-          { name: "leaf3" },
-        ],
-      };
-
-      const result = treeStats(treeNode);
-
-      const output = logOutput.join("\n");
-      expect(result).toMatchObject({
-        nodeCount: 8,
-        leafCount: 4,
-        maxDepth: 3,
-        valueCount: 4,
-      });
-      expect(result.output).toBe(output);
-      expect(output).toContain("Total nodes:");
-      expect(output).toContain("8");
-      expect(output).toContain("Leaf nodes:");
-      expect(output).toContain("4");
-      expect(output).toContain("Max depth:");
-      expect(output).toContain("3");
-      expect(output).toContain("Nodes with values:");
-      expect(output).toContain("4");
-      expect(output).toContain("Tree name:");
-      expect(output).toContain("root");
-    });
-
-    it("should handle single node tree", () => {
-      const treeNode: TreeNode = {
-        name: "single",
-        value: 42,
-      };
-
-      const result = treeStats(treeNode);
-
-      const output = logOutput.join("\n");
-      expect(result).toMatchObject({
-        nodeCount: 1,
-        leafCount: 1,
-        maxDepth: 0,
-        valueCount: 1,
-      });
-      expect(result.output).toBe(output);
-      expect(output).toContain("Total nodes:");
-      expect(output).toContain("1");
-      expect(output).toContain("Leaf nodes:");
-      expect(output).toContain("1");
-      expect(output).toContain("Max depth:");
-      expect(output).toContain("0");
-    });
-
-    it("should apply render options to printed and returned output", () => {
-      const treeNode: TreeNode = {
-        name: "root",
-      };
-
-      const result = treeStats(treeNode, { offset: 4 });
-
-      const output = logOutput.join("\n");
-      expect(result.output).toBe(output);
-      expect(output.split("\n").every((line) => line.startsWith("    "))).toBe(true);
-    });
-
-    it("throws stable errors for invalid stats arguments", () => {
-      expect(() => treeStats(12 as never)).toThrow("picoprint tree.stats node must be an object");
-      expect(() => treeStats({ name: "root" }, 12 as never)).toThrow("picoprint tree.stats options must be an object");
-      expect(() => treeStats({ name: "root" }, new Date() as never)).toThrow(
-        "picoprint tree.stats options must be an object",
       );
       expect(logOutput).toHaveLength(0);
     });

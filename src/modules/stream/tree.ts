@@ -25,9 +25,6 @@ export interface TreeStreamOptions {
     value?: (s: string) => string;
     connector?: (s: string) => string;
   };
-  nodeColor?: (s: string) => string; // default colors.cyan
-  valueColor?: (s: string) => string; // default colors.yellow
-  connectorColor?: (s: string) => string; // default colors.dim
   renderContext?: RenderOptions["renderContext"];
 }
 export interface TreeStream extends Closable {
@@ -45,9 +42,6 @@ const validateTreeStreamOptions = (options: TreeStreamOptions) => {
   assertColorFunctionOption(options.colors?.node, "stream.tree colors.node");
   assertColorFunctionOption(options.colors?.value, "stream.tree colors.value");
   assertColorFunctionOption(options.colors?.connector, "stream.tree colors.connector");
-  assertColorFunctionOption(options.nodeColor, "nodeColor");
-  assertColorFunctionOption(options.valueColor, "valueColor");
-  assertColorFunctionOption(options.connectorColor, "connectorColor");
 };
 
 export const tree = (options: TreeStreamOptions = {}): TreeStream => {
@@ -56,9 +50,9 @@ export const tree = (options: TreeStreamOptions = {}): TreeStream => {
   const indentBase = " ".repeat(ctx.offset);
   const bullet = options.bullet ?? "•";
   const indentUnit = options.indent ?? "│ ";
-  const nodeColor = options.colors?.node ?? options.nodeColor ?? colors.cyan;
-  const valueColor = options.colors?.value ?? options.valueColor ?? colors.yellow;
-  const connectorColor = options.colors?.connector ?? options.connectorColor ?? colors.dim;
+  const nodeColor = options.colors?.node ?? colors.cyan;
+  const valueColor = options.colors?.value ?? colors.yellow;
+  const connectorColor = options.colors?.connector ?? colors.dim;
 
   let depth = 0;
   let isOpen = true;
