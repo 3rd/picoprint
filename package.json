@@ -1,6 +1,6 @@
 {
   "name": "picoprint",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Tiny zero-dependency pretty printer for the terminal",
   "author": "3rd",
   "type": "module",
@@ -47,7 +47,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "prepack": "bun run build",
     "prepublishOnly": "bun run test:package",
     "test": "bun test",
@@ -61,8 +61,8 @@
     "@types/bun": "^1.3.11",
     "@types/node": "^25.5.0",
     "knip": "^6.1.0",
-    "tsup": "^8.5.0",
-    "typescript": "^5"
+    "tsdown": "^0.22.3",
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=22",
